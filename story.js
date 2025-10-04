@@ -1,5 +1,7 @@
+// REFACTORED: Removed duplicate control generation; using static markup from index.html
 // Story Mode Module for Interactive Earth Story Map
 import { store, storeUtils, STORY_STATUS } from './store.js';
+import { pushNotification } from './notifications.js';
 
 const STORY_CONFIG = {
   autoAdvanceInterval: 4000,
@@ -12,11 +14,13 @@ let storyState = {
   controls: null,
   events: [],
   currentIndex: 0,
-  isPlaying: false,
+  status: 'idle', // idle, playing, paused, finished
   autoAdvanceTimer: null,
-  progress: { current: 0, total: 100 },
   isInitialized: false
 };
+
+// Control elements
+let elements = {};
 
 export function initStoryMode(controlsSelector = '#storyControls') {
   try {
@@ -30,6 +34,7 @@ export function initStoryMode(controlsSelector = '#storyControls') {
     
     setupStoryControls();
     setupStoryEventListeners();
+    setupKeyboardHandlers();
     store.subscribe(handleStoreUpdate);
     
     storyState.isInitialized = true;
@@ -44,242 +49,278 @@ export function initStoryMode(controlsSelector = '#storyControls') {
 }
 
 function setupStoryControls() {
-  storyState.controls.innerHTML = `
-    <div class="story-controls">
-      <button id="playStoryBtn" class="story-btn story-btn--play" aria-label="Play story">
-        <span class="story-btn-icon">▶️</span>
-        <span class="story-btn-text">Play Story</span>
-      </button>
-      
-      <button id="pauseStoryBtn" class="story-btn story-btn--pause" aria-label="Pause story" style="display: none;">
-        <span class="story-btn-icon">⏸️</span>
-        <span class="story-btn-text">Pause</span>
-      </button>
-      
-      <button id="prevStoryBtn" class="story-btn story-btn--prev" aria-label="Previous event">
-        <span class="story-btn-icon">⏮️</span>
-      </button>
-      
-      <button id="nextStoryBtn" class="story-btn story-btn--next" aria-label="Next event">
-        <span class="story-btn-icon">⏭️</span>
-      </button>
-    </div>
-    
-    <div class="story-progress" aria-label="Story progress">
-      <div class="story-progress-bar">
-        <div id="story-progress-fill" class="story-progress-fill" style="width: 0%"></div>
-      </div>
-      <div id="story-progress-text" class="story-progress-text">0/0 (0%)</div>
-    </div>
-  `;
+  // Select existing elements from index.html (no innerHTML generation)
+  elements.playBtn = document.querySelector('#storyPlayBtn');
+  elements.pauseBtn = document.querySelector('#storyPauseBtn');
+  elements.prevBtn = document.querySelector('#storyPrevBtn');
+  elements.nextBtn = document.querySelector('#storyNextBtn');
+  elements.resetBtn = document.querySelector('#storyResetBtn');
+  elements.progressFill = document.querySelector('#storyProgressFill');
+  elements.progressText = document.querySelector('#storyProgressText');
+  elements.container = document.querySelector('.story-controls-container');
+  
+  // Verify all elements exist
+  const requiredElements = ['playBtn', 'pauseBtn', 'prevBtn', 'nextBtn', 'resetBtn', 'progressFill', 'progressText', 'container'];
+  for (const elementName of requiredElements) {
+    if (!elements[elementName]) {
+      console.error(`Story control element not found: ${elementName}`);
+      return false;
+    }
+  }
+  
+  console.log('✅ Story controls elements found and connected');
+  return true;
 }
 
 function setupStoryEventListeners() {
-  const playBtn = document.querySelector('#playStoryBtn');
-  const pauseBtn = document.querySelector('#pauseStoryBtn');
-  const prevBtn = document.querySelector('#prevStoryBtn');
-  const nextBtn = document.querySelector('#nextStoryBtn');
-  
-  if (playBtn) playBtn.addEventListener('click', () => play());
-  if (pauseBtn) pauseBtn.addEventListener('click', () => pause());
-  if (prevBtn) prevBtn.addEventListener('click', () => prev());
-  if (nextBtn) nextBtn.addEventListener('click', () => next());
+  if (elements.playBtn) elements.playBtn.addEventListener('click', () => play());
+  if (elements.pauseBtn) elements.pauseBtn.addEventListener('click', () => pause());
+  if (elements.prevBtn) elements.prevBtn.addEventListener('click', () => prev());
+  if (elements.nextBtn) elements.nextBtn.addEventListener('click', () => next());
+  if (elements.resetBtn) elements.resetBtn.addEventListener('click', () => reset());
+}
+
+function setupKeyboardHandlers() {
+  document.addEventListener('keydown', (event) => {
+    // Skip if user is typing in input/textarea
+    if (event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA') return;
+    
+    switch (event.code) {
+      case 'Space':
+        event.preventDefault();
+        if (storyState.status === 'playing') {
+          pause();
+        } else if (storyState.status === 'idle' || storyState.status === 'paused') {
+          play();
+        }
+        break;
+        
+      case 'ArrowRight':
+        event.preventDefault();
+        next();
+        break;
+        
+      case 'ArrowLeft':
+        event.preventDefault();
+        prev();
+        break;
+        
+      case 'Escape':
+        if (storyState.status === 'playing') {
+          pause();
+        }
+        break;
+    }
+  });
 }
 
 function handleStoreUpdate(newState, prevState, action) {
   if (!storyState.isInitialized) return;
   
   if (action === 'setEventsData' || action === 'setFilteredEvents') {
-    setStoryEvents(newState.filteredEvents || []);
+    setStoryEvents(newState);
   }
   
   if (action === 'setStoryStatus') {
-    updateStoryUI(newState.story.status);
+    updateStoryUI();
   }
 }
 
-export function play(startIndex = null) {
-  if (!storyState.isInitialized) return;
+function setStoryEvents(state) {
+  // Get filtered events and sort by storyOrder
+  const allEvents = state.filteredEvents || state.events || [];
+  storyState.events = allEvents
+    .filter(event => event.storyOrder != null)
+    .sort((a, b) => a.storyOrder - b.storyOrder);
   
-  console.log('▶️ Starting story mode');
+  console.log(`📚 Story events set: ${storyState.events.length} events`);
   
-  if (startIndex !== null) {
-    storyState.currentIndex = startIndex;
+  // If no story events, hide controls
+  if (storyState.events.length === 0) {
+    if (elements.container) {
+      elements.container.style.display = 'none';
+    }
+    console.info('ℹ️ No story events available, hiding story controls');
+    return;
+  } else {
+    if (elements.container) {
+      elements.container.style.display = 'flex';
+    }
   }
   
+  // If current event is no longer in filtered list, reset
+  if (storyState.currentIndex >= storyState.events.length) {
+    reset();
+  }
+  
+  updateStoryUI();
+}
+
+export function play() {
   if (storyState.events.length === 0) {
-    console.warn('⚠️ No events available for story mode');
+    console.warn('⚠️ Cannot play: no story events available');
     return;
   }
   
-  storyState.isPlaying = true;
-  storeUtils.setStoryStatus(STORY_STATUS.PLAYING);
+  storyState.status = 'playing';
   
-  // Show first event
-  showCurrentEvent();
+  // If at end, start from beginning
+  if (storyState.currentIndex >= storyState.events.length) {
+    storyState.currentIndex = 0;
+  }
   
-  // Start auto-advance
-  scheduleNext();
+  updateStoryUI();
+  updateActiveEvent();
+  scheduleAuto();
+  
+  console.log(`▶️ Story playing from event ${storyState.currentIndex + 1}/${storyState.events.length}`);
 }
 
 export function pause() {
-  if (!storyState.isInitialized) return;
+  storyState.status = 'paused';
+  clearAuto();
+  updateStoryUI();
   
-  console.log('⏸️ Pausing story mode');
-  
-  storyState.isPlaying = false;
-  storeUtils.setStoryStatus(STORY_STATUS.PAUSED);
-  
-  clearAutoAdvance();
+  console.log('⏸️ Story paused');
 }
 
-export function next(autoAdvance = false) {
-  if (!storyState.isInitialized) return;
+export function next() {
+  if (storyState.events.length === 0) return;
   
   if (storyState.currentIndex < storyState.events.length - 1) {
     storyState.currentIndex++;
-    showCurrentEvent();
+    updateActiveEvent();
+    updateStoryUI();
     
-    if (storyState.isPlaying && !autoAdvance) {
-      scheduleNext();
-    }
+    console.log(`⏭️ Next event: ${storyState.currentIndex + 1}/${storyState.events.length}`);
   } else {
-    // End of story
+    // Reached the end
     finish();
   }
 }
 
 export function prev() {
-  if (!storyState.isInitialized) return;
+  if (storyState.events.length === 0) return;
   
   if (storyState.currentIndex > 0) {
     storyState.currentIndex--;
-    showCurrentEvent();
+    updateActiveEvent();
+    updateStoryUI();
     
-    if (storyState.isPlaying) {
-      scheduleNext();
-    }
+    console.log(`⏮️ Previous event: ${storyState.currentIndex + 1}/${storyState.events.length}`);
   }
+}
+
+function reset() {
+  storyState.currentIndex = 0;
+  storyState.status = 'idle';
+  clearAuto();
+  
+  if (storyState.events.length > 0) {
+    updateActiveEvent();
+  }
+  updateStoryUI();
+  
+  console.log('🔄 Story reset to beginning');
 }
 
 function finish() {
+  storyState.status = 'finished';
+  clearAuto();
+  updateStoryUI();
+  
   console.log('🏁 Story finished');
   
-  storyState.isPlaying = false;
-  storeUtils.setStoryStatus(STORY_STATUS.FINISHED);
-  
-  clearAutoAdvance();
-  
-  // Reset to beginning
-  setTimeout(() => {
-    storyState.currentIndex = 0;
-    storeUtils.setStoryStatus(STORY_STATUS.IDLE);
-  }, 2000);
-}
-
-function showCurrentEvent() {
-  if (storyState.currentIndex >= 0 && storyState.currentIndex < storyState.events.length) {
-    const event = storyState.events[storyState.currentIndex];
-    storeUtils.setActiveEvent(event.id);
-    
-    updateProgress();
-    
-    console.log('📍 Showing event:', event.title);
+  // Show completion notification
+  if (typeof pushNotification === 'function') {
+    pushNotification({
+      type: 'success',
+      title: 'Story Complete',
+      message: `You've viewed all ${storyState.events.length} climate events in the story.`,
+      duration: 4000
+    });
   }
 }
 
-function scheduleNext() {
-  clearAutoAdvance();
+function updateActiveEvent() {
+  if (storyState.events.length === 0 || storyState.currentIndex >= storyState.events.length) return;
   
-  if (storyState.isPlaying) {
-    storyState.autoAdvanceTimer = setTimeout(() => {
-      next(true);
-      if (storyState.isPlaying) {
-        scheduleNext();
-      }
-    }, STORY_CONFIG.autoAdvanceInterval);
+  const currentEvent = storyState.events[storyState.currentIndex];
+  if (currentEvent) {
+    store.setState({ activeEventId: currentEvent.id }, 'storyAdvance');
   }
 }
 
-function clearAutoAdvance() {
+function updateStoryUI() {
+  if (!elements.container) return;
+  
+  // Set data-story-status attribute
+  elements.container.setAttribute('data-story-status', storyState.status);
+  
+  // Update button states
+  updateButtonStates();
+  updateProgress();
+}
+
+function updateButtonStates() {
+  if (!elements.playBtn || !elements.pauseBtn || !elements.prevBtn || !elements.nextBtn || !elements.resetBtn) return;
+  
+  const { status, currentIndex, events } = storyState;
+  const hasEvents = events.length > 0;
+  
+  // Play/Pause button visibility
+  if (status === 'playing') {
+    elements.playBtn.style.display = 'none';
+    elements.pauseBtn.style.display = 'flex';
+  } else {
+    elements.playBtn.style.display = 'flex';
+    elements.pauseBtn.style.display = 'none';
+  }
+  
+  // Button disabled states
+  elements.playBtn.disabled = !hasEvents || status === 'playing';
+  elements.pauseBtn.disabled = status !== 'playing';
+  elements.prevBtn.disabled = !hasEvents || currentIndex === 0 || status === 'idle';
+  elements.nextBtn.disabled = !hasEvents || currentIndex === events.length - 1 || (status !== 'playing' && status !== 'paused');
+}
+
+function updateProgress() {
+  if (!elements.progressFill || !elements.progressText) return;
+  
+  const { currentIndex, events } = storyState;
+  
+  if (events.length === 0) {
+    elements.progressFill.style.width = '0%';
+    elements.progressText.textContent = '0/0 (0%)';
+    return;
+  }
+  
+  const percent = Math.round(((currentIndex + 1) / events.length) * 100);
+  elements.progressFill.style.width = `${percent}%`;
+  elements.progressText.textContent = `${currentIndex + 1}/${events.length} (${percent}%)`;
+}
+
+function clearAuto() {
   if (storyState.autoAdvanceTimer) {
     clearTimeout(storyState.autoAdvanceTimer);
     storyState.autoAdvanceTimer = null;
   }
 }
 
-export function setStoryEvents(events) {
-  storyState.events = [...events].sort((a, b) => new Date(a.date) - new Date(b.date));
-  storyState.currentIndex = 0;
+function scheduleAuto() {
+  clearAuto();
   
-  updateProgress();
-  
-  console.log('🎬 Story events set:', storyState.events.length);
-}
-
-function updateProgress() {
-  if (storyState.events.length === 0) {
-    storyState.progress = { current: 0, total: 100 };
-  } else {
-    storyState.progress = {
-      current: ((storyState.currentIndex + 1) / storyState.events.length) * 100,
-      total: 100
-    };
-  }
-  
-  updateProgressUI();
-}
-
-export function updateProgressUI() {
-  if (!storyState.isInitialized) return;
-  
-  try {
-    const progressFill = document.querySelector('#story-progress-fill');
-    const progressText = document.querySelector('#story-progress-text');
-    
-    if (progressFill) {
-      progressFill.style.width = `${storyState.progress.current}%`;
-    }
-    
-    if (progressText) {
-      const currentEventNum = storyState.currentIndex + 1;
-      const totalEvents = storyState.events.length;
-      const percentComplete = storyState.progress.current.toFixed(1);
-      
-      progressText.textContent = `${currentEventNum}/${totalEvents} (${percentComplete}%)`;
-    }
-    
-  } catch (error) {
-    console.error('❌ Progress UI update failed:', error);
+  if (storyState.status === 'playing') {
+    storyState.autoAdvanceTimer = setTimeout(() => {
+      next();
+      if (storyState.status === 'playing') {
+        scheduleAuto();
+      }
+    }, store.story?.intervalMs || STORY_CONFIG.autoAdvanceInterval);
   }
 }
 
-function updateStoryUI(status) {
-  const playBtn = document.querySelector('#playStoryBtn');
-  const pauseBtn = document.querySelector('#pauseStoryBtn');
-  
-  if (!playBtn || !pauseBtn) return;
-  
-  switch (status) {
-    case STORY_STATUS.PLAYING:
-      playBtn.style.display = 'none';
-      pauseBtn.style.display = 'inline-flex';
-      break;
-      
-    case STORY_STATUS.PAUSED:
-    case STORY_STATUS.IDLE:
-    case STORY_STATUS.FINISHED:
-      playBtn.style.display = 'inline-flex';
-      pauseBtn.style.display = 'none';
-      break;
-  }
-}
+// Export additional functions for external use
+export { reset };
 
-export function cleanupStory() {
-  clearAutoAdvance();
-  storyState.isInitialized = false;
-  
-  console.log('🧹 Story mode cleaned up');
-}
-
-export { storyState, STORY_CONFIG };
+// TODO: BACKEND - Add narration support and external story data loading

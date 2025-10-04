@@ -23,6 +23,7 @@ export const sampleEvents = [
     satellite: "Terra/Aqua",
     date: "2024-08-15T10:30:00Z",
     confidence: 92,
+    storyOrder: 1,
     metadata: {
       area_burned: "1,847 hectares",
       detection_time: "2024-08-15T10:15:00Z",
@@ -68,6 +69,7 @@ export const sampleEvents = [
     satellite: "Aqua",
     date: "2024-07-22T06:45:00Z",
     confidence: 87,
+    storyOrder: 2,
     metadata: {
       co_concentration: "2.3 ppmv",
       detection_altitude: "500-700 hPa",
@@ -113,6 +115,7 @@ export const sampleEvents = [
     satellite: "NOAA-20",
     date: "2024-06-18T14:20:00Z",
     confidence: 95,
+    storyOrder: 3,
     metadata: {
       flood_extent: "12,450 km²",
       water_depth: "2-4 meters",
@@ -158,6 +161,7 @@ export const sampleEvents = [
     satellite: "Terra",
     date: "2024-09-04T16:15:00Z",
     confidence: 89,
+    storyOrder: 4,
     metadata: {
       snow_depth: "35 cm",
       temperature: "-3°C",
@@ -203,6 +207,7 @@ export const sampleEvents = [
     satellite: "Landsat-8",
     date: "2024-05-10T18:30:00Z",
     confidence: 93,
+    storyOrder: 5,
     metadata: {
       soil_moisture: "15% below normal",
       crop_stress: "severe",
@@ -248,6 +253,7 @@ export const sampleEvents = [
     satellite: "Landsat-9",
     date: "2024-03-25T11:45:00Z",
     confidence: 91,
+    storyOrder: 6,
     metadata: {
       area_cleared: "847 hectares",
       forest_type: "primary rainforest",

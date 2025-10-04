@@ -106,25 +106,31 @@
         <!-- Story Mode Controls -->
         <section id="storyControls" class="story-controls" role="region" aria-labelledby="story-heading">
             <h2 id="story-heading" class="visually-hidden">Story Mode Controls</h2>
-            <div class="story-controls-container">
-                <button type="button" class="story-btn story-btn--play" aria-label="Play story mode">
+            <div class="story-controls-container" role="group" aria-label="Story Mode Controls">
+                <button type="button" id="storyPlayBtn" class="story-btn story-btn--play" data-action="play" aria-label="Play story mode">
                     <span class="btn-icon">▶</span>
                     <span class="btn-text">Play Story</span>
                 </button>
-                <button type="button" class="story-btn story-btn--pause" aria-label="Pause story mode" disabled>
+                <button type="button" id="storyPauseBtn" class="story-btn story-btn--pause" data-action="pause" aria-label="Pause story mode" style="display: none;">
                     <span class="btn-icon">⏸</span>
                     <span class="btn-text">Pause</span>
                 </button>
-                <button type="button" class="story-btn story-btn--reset" aria-label="Reset story to beginning">
+                <button type="button" id="storyPrevBtn" class="story-btn story-btn--prev" data-action="prev" aria-label="Previous event">
                     <span class="btn-icon">⏮</span>
+                </button>
+                <button type="button" id="storyNextBtn" class="story-btn story-btn--next" data-action="next" aria-label="Next event">
+                    <span class="btn-icon">⏭</span>
+                </button>
+                <button type="button" id="storyResetBtn" class="story-btn story-btn--reset" data-action="reset" aria-label="Reset story to beginning">
+                    <span class="btn-icon">🔄</span>
                     <span class="btn-text">Reset</span>
                 </button>
-                <div class="story-progress">
-                    <label for="story-progress-bar" class="visually-hidden">Story progress</label>
-                    <progress id="story-progress-bar" class="progress-bar" value="0" max="100" aria-describedby="story-progress-text">0%</progress>
-                    <span id="story-progress-text" class="progress-text">0% complete</span>
+                <div class="story-progress" role="group" aria-label="Story progress">
+                    <div class="story-progress-bar">
+                        <div class="story-progress-fill" id="storyProgressFill" style="width:0%"></div>
+                    </div>
+                    <div class="story-progress-text" id="storyProgressText" aria-live="polite">0/0 (0%)</div>
                 </div>
-                <!-- TODO: Implement story mode functionality -->
             </div>
         </section>
     </main>
