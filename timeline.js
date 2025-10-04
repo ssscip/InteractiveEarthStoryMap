@@ -1,50 +1,143 @@
-// Timeline Module for Interactive Earth Story Map
-import { store, storeUtils, STORY_STATUS } from './store.js';
+/**
+ * @fileoverview Enhanced Timeline module with virtualization and performance optimizations
+ * Provides high-performance interactive timeline for large datasets
+ */
 
+import { store, actions, eventBus } from './js/store.js';
+import { formatDate, getRelativeTime } from './js/utils/format.js';
+import { qs, el, on, debounce } from './js/utils/dom.js';
+import { clamp } from './js/utils/math.js';
+
+/**
+ * Timeline configuration
+ */
 const TIMELINE_CONFIG = {
-  itemWidth: 8,
-  itemHeight: 6,
-  itemSpacing: 2,
-  animationDuration: 300,
-  hoverDelay: 500
+  // Virtualization settings
+  VIRTUAL_THRESHOLD: 200, // Enable virtualization above this count
+  BUFFER_SIZE: 50, // Extra items to render outside viewport
+  ITEM_WIDTH: 120, // Width of each timeline item in pixels
+  ITEM_HEIGHT: 60, // Height of each timeline item
+  
+  // Performance settings
+  DEBOUNCE_DELAY: 150, // Filter debounce delay in ms
+  SCROLL_DEBOUNCE: 16, // Scroll debounce for 60fps
+  
+  // UX settings
+  AUTO_CENTER: true,
+  SMOOTH_SCROLL: true,
+  HOVER_DELAY: 300, // Hover popup delay
+  
+  // Animation
+  SCROLL_DURATION: 500,
+  TRANSITION_DURATION: 250
 };
 
+/**
+ * Timeline state with virtualization support
+ * @type {import('./js/types.js').TimelineState}
+ */
 let timelineState = {
-  container: null,
-  track: null,
-  items: [],
-  sortedEvents: [],
-  selectedItem: null,
-  hoverTimeout: null,
-  isInitialized: false
+  // Core state
+  isVisible: true,
+  currentDate: null,
+  dateRange: { start: null, end: null },
+  playbackSpeed: 1.0,
+  isPlaying: false,
+  selectedPeriod: 'all',
+  zoom: 1.0,
+  
+  // Virtualization state
+  events: [],
+  filteredEvents: [],
+  visibleEvents: [],
+  scrollPosition: 0,
+  viewportWidth: 0,
+  totalWidth: 0,
+  
+  // Performance state
+  isVirtualized: false,
+  renderStartIndex: 0,
+  renderEndIndex: 0,
+  
+  // Active states
+  activeEventId: null,
+  hoveredEventId: null
 };
 
-export function initTimeline(containerSelector = '.timeline-container') {
+/**
+ * Timeline DOM elements
+ */
+let timelineElements = {
+  container: null,
+  viewport: null,
+  scrollContainer: null,
+  itemsContainer: null,
+  controls: null,
+  
+  // Controls
+  playButton: null,
+  dateDisplay: null,
+  speedControl: null,
+  periodSelector: null,
+  zoomControls: null,
+  
+  // Hover popup
+  hoverPopup: null,
+  
+  // Intersection observer
+  observer: null
+};
+
+/**
+ * Animation and timing
+ */
+let animationFrameId = null;
+let scrollAnimationId = null;
+let hoverTimeout = null;
+
+/**
+ * Debounced functions
+ */
+const debouncedFilter = debounce(applyFilters, TIMELINE_CONFIG.DEBOUNCE_DELAY);
+const debouncedScroll = debounce(handleScroll, TIMELINE_CONFIG.SCROLL_DEBOUNCE);
+const debouncedResize = debounce(handleResize, 250);
+
+/**
+ * Initialize timeline module
+ * @returns {boolean} Success status
+ */
+export function initTimeline() {
   try {
-    console.log('🕐 Initializing timeline...');
+    console.log('📈 Initializing enhanced timeline module...');
     
-    timelineState.container = document.querySelector(containerSelector);
-    if (!timelineState.container) {
-      console.error('Timeline container not found:', containerSelector);
+    // Get DOM elements
+    timelineElements.container = qs('.timeline-container');
+    if (!timelineElements.container) {
+      console.warn('Timeline container not found');
       return false;
     }
     
-    timelineState.track = timelineState.container.querySelector('.timeline-track');
-    if (!timelineState.track) {
-      timelineState.track = document.createElement('div');
-      timelineState.track.className = 'timeline-track';
-      timelineState.track.setAttribute('role', 'slider');
-      timelineState.track.setAttribute('aria-label', 'Timeline navigation');
-      timelineState.track.setAttribute('tabindex', '0');
-      timelineState.container.appendChild(timelineState.track);
+    // Build timeline UI
+    buildTimelineUI();
+    
+    // Setup event listeners
+    setupTimelineEvents();
+    
+    // Setup intersection observer for hover optimization
+    setupIntersectionObserver();
+    
+    // Subscribe to store updates
+    store.subscribe((state) => {
+      updateTimelineFromState(state);
+    });
+    
+    // Initialize from current state
+    const currentState = store.getState();
+    if (currentState.events?.length > 0) {
+      loadEvents(currentState.events);
     }
     
-    setupTimelineEventListeners();
-    store.subscribe(handleStoreUpdate);
-    
-    timelineState.isInitialized = true;
-    console.log('✅ Timeline initialized successfully');
-    
+    console.log('✅ Enhanced timeline module initialized');
     return true;
     
   } catch (error) {
@@ -53,337 +146,644 @@ export function initTimeline(containerSelector = '.timeline-container') {
   }
 }
 
-function handleStoreUpdate(newState, prevState, action) {
-  if (!timelineState.isInitialized) return;
+/**
+ * Build enhanced timeline UI with virtualization support
+ */
+function buildTimelineUI() {
+  const container = timelineElements.container;
   
-  if (action === 'setEventsData' || action === 'setFilteredEvents') {
-    renderTimeline();
+  container.innerHTML = `
+    <div class=\"timeline-header\">
+      <div class=\"timeline-controls\">
+        <button class=\"timeline-btn timeline-play\" aria-label=\"Play timeline\">
+          <span class=\"icon\">▶</span>
+        </button>
+        <div class=\"timeline-speed\">
+          <label for=\"timeline-speed-select\">Speed:</label>
+          <select id=\"timeline-speed-select\" class=\"timeline-speed-select\">
+            <option value=\"0.5\">0.5x</option>
+            <option value=\"1\" selected>1x</option>
+            <option value=\"2\">2x</option>
+            <option value=\"4\">4x</option>
+          </select>
+        </div>
+        <div class=\"timeline-zoom\">
+          <button class=\"timeline-zoom-out\" aria-label=\"Zoom out\">−</button>
+          <span class=\"timeline-zoom-level\">100%</span>
+          <button class=\"timeline-zoom-in\" aria-label=\"Zoom in\">+</button>
+        </div>
+      </div>
+      <div class=\"timeline-info\">
+        <span class=\"timeline-date-display\">Select an event</span>
+        <span class=\"timeline-event-count\">0 events</span>
+      </div>
+    </div>
+    
+    <div class=\"timeline-viewport\" role=\"region\" aria-label=\"Timeline events\">
+      <div class=\"timeline-scroll-container\">
+        <div class=\"timeline-items-container\">
+          <!-- Timeline items will be rendered here -->
+        </div>
+      </div>
+    </div>
+    
+    <div class=\"timeline-hover-popup\" style=\"display: none;\">
+      <div class=\"popup-content\">
+        <div class=\"popup-title\"></div>
+        <div class=\"popup-date\"></div>
+        <div class=\"popup-type\"></div>
+      </div>
+    </div>
+  `;
+  
+  // Cache element references
+  timelineElements.viewport = qs('.timeline-viewport', container);
+  timelineElements.scrollContainer = qs('.timeline-scroll-container', container);
+  timelineElements.itemsContainer = qs('.timeline-items-container', container);
+  timelineElements.playButton = qs('.timeline-play', container);
+  timelineElements.dateDisplay = qs('.timeline-date-display', container);
+  timelineElements.speedControl = qs('.timeline-speed-select', container);
+  timelineElements.zoomControls = {
+    zoomIn: qs('.timeline-zoom-in', container),
+    zoomOut: qs('.timeline-zoom-out', container),
+    level: qs('.timeline-zoom-level', container)
+  };
+  timelineElements.hoverPopup = qs('.timeline-hover-popup', container);
+  timelineElements.eventCount = qs('.timeline-event-count', container);
+}
+
+/**
+ * Setup timeline event listeners with performance optimizations
+ */
+function setupTimelineEvents() {
+  // Play/pause button
+  on(timelineElements.playButton, 'click', togglePlayback);
+  
+  // Speed control
+  on(timelineElements.speedControl, 'change', (event) => {
+    timelineState.playbackSpeed = parseFloat(event.target.value);
+    updateSpeedDisplay();
+  });
+  
+  // Zoom controls
+  on(timelineElements.zoomControls.zoomIn, 'click', () => zoomTimeline(1.2));
+  on(timelineElements.zoomControls.zoomOut, 'click', () => zoomTimeline(0.8));
+  
+  // Scroll handling with debouncing
+  on(timelineElements.scrollContainer, 'scroll', debouncedScroll);
+  
+  // Window resize
+  on(window, 'resize', debouncedResize);
+  
+  // Store events
+  eventBus.on('eventsLoaded', (events) => {
+    loadEvents(events);
+  });
+  
+  eventBus.on('filtersChanged', debouncedFilter);
+  
+  eventBus.on('eventSelected', (event) => {
+    setActiveEvent(event.id);
+    scrollActiveIntoView(true);
+  });
+  
+  eventBus.on('storyStep', (event) => {
+    setActiveEvent(event.id);
+    scrollActiveIntoView(true);
+  });
+}
+
+/**
+ * Setup intersection observer for performance optimization
+ */
+function setupIntersectionObserver() {
+  if (!('IntersectionObserver' in window)) return;
+  
+  timelineElements.observer = new IntersectionObserver(
+    (entries) => {
+      entries.forEach(entry => {
+        const eventItem = entry.target;
+        if (entry.isIntersecting) {
+          eventItem.classList.add('is-visible');
+        } else {
+          eventItem.classList.remove('is-visible');
+        }
+      });
+    },
+    {
+      root: timelineElements.viewport,
+      rootMargin: '50px',
+      threshold: 0.1
+    }
+  );
+}
+
+/**
+ * Load events and setup virtualization if needed
+ * @param {Object[]} events - Array of events
+ */
+function loadEvents(events) {
+  timelineState.events = events;
+  timelineState.filteredEvents = [...events];
+  
+  // Sort events by date
+  timelineState.filteredEvents.sort((a, b) => 
+    new Date(a.timestamp) - new Date(b.timestamp)
+  );
+  
+  // Calculate date range
+  if (timelineState.filteredEvents.length > 0) {
+    timelineState.dateRange.start = new Date(timelineState.filteredEvents[0].timestamp);
+    timelineState.dateRange.end = new Date(timelineState.filteredEvents[timelineState.filteredEvents.length - 1].timestamp);
   }
   
-  if (action === 'setActiveEvent') {
-    updateTimelineSelection(newState.activeEventId);
-  }
+  // Check if virtualization is needed
+  timelineState.isVirtualized = timelineState.filteredEvents.length > TIMELINE_CONFIG.VIRTUAL_THRESHOLD;
   
-  if (action === 'setStoryStatus' || action === 'setStoryIndex') {
-    updateStoryModeIndicator(newState.story);
+  console.log(`📈 Timeline loaded: ${events.length} events, virtualization: ${timelineState.isVirtualized ? 'ON' : 'OFF'}`);
+  
+  // Update viewport size
+  updateViewportSize();
+  
+  // Render timeline
+  renderTimeline();
+  
+  // Update info display
+  updateTimelineInfo();
+}
+
+/**
+ * Apply filters to events
+ */
+function applyFilters() {
+  const state = store.getState();
+  const { typeFilter, severityFilter, dateFilter } = state.filters || {};
+  
+  timelineState.filteredEvents = timelineState.events.filter(event => {
+    // Type filter
+    if (typeFilter && typeFilter !== 'all' && event.type !== typeFilter) {
+      return false;
+    }
+    
+    // Severity filter
+    if (severityFilter && severityFilter !== 'all' && event.severity !== severityFilter) {
+      return false;
+    }
+    
+    // Date filter
+    if (dateFilter) {
+      const eventDate = new Date(event.timestamp);
+      if (dateFilter.start && eventDate < dateFilter.start) return false;
+      if (dateFilter.end && eventDate > dateFilter.end) return false;
+    }
+    
+    return true;
+  });
+  
+  // Re-sort filtered events
+  timelineState.filteredEvents.sort((a, b) => 
+    new Date(a.timestamp) - new Date(b.timestamp)
+  );
+  
+  // Update virtualization status
+  timelineState.isVirtualized = timelineState.filteredEvents.length > TIMELINE_CONFIG.VIRTUAL_THRESHOLD;
+  
+  // Update viewport and render
+  updateViewportSize();
+  renderTimeline();
+  updateTimelineInfo();
+  
+  console.log(`📈 Timeline filtered: ${timelineState.filteredEvents.length} events visible`);
+}
+
+/**
+ * Update viewport size calculations
+ */
+function updateViewportSize() {
+  if (!timelineElements.viewport) return;
+  
+  timelineState.viewportWidth = timelineElements.viewport.clientWidth;
+  timelineState.totalWidth = timelineState.filteredEvents.length * TIMELINE_CONFIG.ITEM_WIDTH * timelineState.zoom;
+  
+  // Update scroll container width
+  timelineElements.scrollContainer.style.width = `${timelineState.totalWidth}px`;
+}
+
+/**
+ * Handle scroll events with virtualization
+ */
+function handleScroll() {
+  if (!timelineState.isVirtualized) return;
+  
+  timelineState.scrollPosition = timelineElements.scrollContainer.scrollLeft;
+  
+  // Calculate visible range
+  calculateVisibleRange();
+  
+  // Re-render if needed
+  renderVisibleItems();
+}
+
+/**
+ * Calculate which items should be visible (virtualization)
+ */
+function calculateVisibleRange() {
+  const itemWidth = TIMELINE_CONFIG.ITEM_WIDTH * timelineState.zoom;
+  const bufferSize = TIMELINE_CONFIG.BUFFER_SIZE;
+  
+  const startIndex = Math.max(0, 
+    Math.floor(timelineState.scrollPosition / itemWidth) - bufferSize
+  );
+  
+  const endIndex = Math.min(timelineState.filteredEvents.length - 1,
+    Math.ceil((timelineState.scrollPosition + timelineState.viewportWidth) / itemWidth) + bufferSize
+  );
+  
+  timelineState.renderStartIndex = startIndex;
+  timelineState.renderEndIndex = endIndex;
+  
+  timelineState.visibleEvents = timelineState.filteredEvents.slice(startIndex, endIndex + 1);
+}
+
+/**
+ * Render timeline items (with virtualization support)
+ */
+function renderTimeline() {
+  if (timelineState.isVirtualized) {
+    calculateVisibleRange();
+    renderVisibleItems();
+  } else {
+    renderAllItems();
   }
 }
 
-export function renderTimeline() {
-  if (!timelineState.isInitialized) {
-    console.warn('⚠️ Timeline not initialized');
-    return;
-  }
+/**
+ * Render all items (non-virtualized)
+ */
+function renderAllItems() {
+  const container = timelineElements.itemsContainer;
+  container.innerHTML = '';
   
-  try {
-    const state = store.getState();
-    const events = state.filteredEvents || [];
+  timelineState.filteredEvents.forEach((event, index) => {
+    const item = createTimelineItem(event, index);
+    container.appendChild(item);
     
-    console.log('🎨 Rendering timeline with', events.length, 'events');
-    
-    timelineState.sortedEvents = [...events].sort((a, b) => 
-      new Date(a.date) - new Date(b.date)
-    );
-    
-    clearTimeline();
-    
-    const placeholder = timelineState.track.querySelector('.timeline-placeholder');
-    if (placeholder) {
-      placeholder.remove();
+    // Add to intersection observer
+    if (timelineElements.observer) {
+      timelineElements.observer.observe(item);
     }
-    
-    if (timelineState.sortedEvents.length === 0) {
-      showTimelinePlaceholder('No events to display');
-      return;
-    }
-    
-    timelineState.items = [];
-    const trackWidth = calculateTrackWidth(timelineState.sortedEvents.length);
-    timelineState.track.style.width = trackWidth + 'px';
-    
-    timelineState.sortedEvents.forEach((event, index) => {
-      const item = createTimelineItem(event, index);
-      timelineState.track.appendChild(item);
-      timelineState.items.push(item);
+  });
+}
+
+/**
+ * Render only visible items (virtualized)
+ */
+function renderVisibleItems() {
+  const container = timelineElements.itemsContainer;
+  container.innerHTML = '';
+  
+  // Create spacer for items before visible range
+  if (timelineState.renderStartIndex > 0) {
+    const spacerBefore = el('div', {
+      className: 'timeline-spacer',
+      style: `width: ${timelineState.renderStartIndex * TIMELINE_CONFIG.ITEM_WIDTH * timelineState.zoom}px; height: 1px;`
     });
-    
-    updateResultsCounter(timelineState.sortedEvents.length);
-    
-    console.log('✅ Timeline rendered successfully');
-    
-  } catch (error) {
-    console.error('❌ Timeline rendering failed:', error);
-    showTimelinePlaceholder('Error rendering timeline');
+    container.appendChild(spacerBefore);
+  }
+  
+  // Render visible items
+  timelineState.visibleEvents.forEach((event, visibleIndex) => {
+    const actualIndex = timelineState.renderStartIndex + visibleIndex;
+    const item = createTimelineItem(event, actualIndex);
+    container.appendChild(item);
+  });
+  
+  // Create spacer for items after visible range
+  const remainingItems = timelineState.filteredEvents.length - timelineState.renderEndIndex - 1;
+  if (remainingItems > 0) {
+    const spacerAfter = el('div', {
+      className: 'timeline-spacer',
+      style: `width: ${remainingItems * TIMELINE_CONFIG.ITEM_WIDTH * timelineState.zoom}px; height: 1px;`
+    });
+    container.appendChild(spacerAfter);
   }
 }
 
+/**
+ * Create a timeline item element
+ * @param {Object} event - Event data
+ * @param {number} index - Event index
+ * @returns {HTMLElement} Timeline item element
+ */
 function createTimelineItem(event, index) {
-  const item = document.createElement('div');
-  item.className = 'timeline-item timeline-item--' + event.type;
-  item.dataset.eventId = event.id;
-  item.dataset.eventIndex = index;
+  const item = el('div', {
+    className: `timeline-item timeline-item--${event.type}`,
+    'data-event-id': event.id,
+    'data-index': index,
+    style: `width: ${TIMELINE_CONFIG.ITEM_WIDTH * timelineState.zoom}px;`
+  });
   
-  item.setAttribute('role', 'button');
-  item.setAttribute('tabindex', '0');
-  item.setAttribute('aria-label', 
-    event.title + ' on ' + formatDate(event.date) + '. ' + event.type + ' event with ' + event.severity + ' severity.');
-  
-  const leftPosition = index * (TIMELINE_CONFIG.itemWidth + TIMELINE_CONFIG.itemSpacing);
-  item.style.left = leftPosition + 'px';
-  item.style.width = TIMELINE_CONFIG.itemWidth + 'px';
-  item.style.height = TIMELINE_CONFIG.itemHeight + 'px';
-  
-  if (event.severity) {
-    item.classList.add('timeline-item--' + event.severity);
+  // Add state classes
+  if (event.id === timelineState.activeEventId) {
+    item.classList.add('is-active');
   }
   
-  item.innerHTML = '<span class="visually-hidden">' + event.title + '</span><div class="timeline-item-indicator" data-type="' + event.type + '"></div>';
+  item.innerHTML = `
+    <div class=\"timeline-item-content\">
+      <div class=\"timeline-item-date\">${formatDate(event.timestamp, 'short')}</div>
+      <div class=\"timeline-item-title\">${event.title}</div>
+      <div class=\"timeline-item-type\" data-type=\"${event.type}\">${event.type}</div>
+      <div class=\"timeline-item-severity timeline-item-severity--${event.severity}\"></div>
+    </div>
+  `;
+  
+  // Event listeners
+  on(item, 'click', () => {
+    actions.selectEvent(event);
+    setActiveEvent(event.id);
+  });
+  
+  // Optimized hover with debouncing
+  on(item, 'mouseenter', (e) => {
+    clearTimeout(hoverTimeout);
+    hoverTimeout = setTimeout(() => {
+      showHoverPopup(event, e.currentTarget);
+    }, TIMELINE_CONFIG.HOVER_DELAY);
+  });
+  
+  on(item, 'mouseleave', () => {
+    clearTimeout(hoverTimeout);
+    hideHoverPopup();
+  });
   
   return item;
 }
 
-export function selectTimelineItem(eventId, itemElement = null) {
-  if (!timelineState.isInitialized) return;
+/**
+ * Set active event with visual feedback
+ * @param {string} eventId - Event ID to activate
+ */
+function setActiveEvent(eventId) {
+  // Remove previous active state
+  const prevActive = qs('.timeline-item.is-active', timelineElements.container);
+  if (prevActive) {
+    prevActive.classList.remove('is-active');
+  }
   
-  try {
-    if (timelineState.selectedItem) {
-      timelineState.selectedItem.classList.remove('timeline-item--selected');
-      timelineState.selectedItem.setAttribute('aria-selected', 'false');
-    }
+  // Set new active state
+  timelineState.activeEventId = eventId;
+  const newActive = qs(`[data-event-id=\"${eventId}\"]`, timelineElements.container);
+  if (newActive) {
+    newActive.classList.add('is-active');
+  }
+  
+  // Update date display
+  const event = timelineState.filteredEvents.find(e => e.id === eventId);
+  if (event) {
+    timelineElements.dateDisplay.textContent = formatDate(event.timestamp, 'full');
+  }
+}
+
+/**
+ * Scroll active event into view with smooth animation
+ * @param {boolean} center - Whether to center the active event
+ */
+export function scrollActiveIntoView(center = true) {
+  if (!timelineState.activeEventId) return;
+  
+  const activeItem = qs(`[data-event-id=\"${timelineState.activeEventId}\"]`, timelineElements.container);
+  if (!activeItem) return;
+  
+  const itemIndex = parseInt(activeItem.dataset.index);
+  const itemWidth = TIMELINE_CONFIG.ITEM_WIDTH * timelineState.zoom;
+  const itemPosition = itemIndex * itemWidth;
+  
+  let targetScrollPosition;
+  
+  if (center) {
+    // Center the item in viewport
+    targetScrollPosition = itemPosition - (timelineState.viewportWidth / 2) + (itemWidth / 2);
+  } else {
+    // Just ensure it's visible
+    const currentScroll = timelineElements.scrollContainer.scrollLeft;
+    const itemStart = itemPosition;
+    const itemEnd = itemPosition + itemWidth;
     
-    const item = itemElement || timelineState.track.querySelector('[data-event-id="' + eventId + '"]');
-    
-    if (item && eventId) {
-      item.classList.add('timeline-item--selected');
-      item.setAttribute('aria-selected', 'true');
-      timelineState.selectedItem = item;
-      
-      scrollTimelineToItem(item);
-      
-      console.log('🎯 Timeline item selected:', eventId);
+    if (itemStart < currentScroll) {
+      targetScrollPosition = itemStart;
+    } else if (itemEnd > currentScroll + timelineState.viewportWidth) {
+      targetScrollPosition = itemEnd - timelineState.viewportWidth;
     } else {
-      timelineState.selectedItem = null;
-      console.log('🎯 Timeline selection cleared');
+      return; // Already visible
     }
+  }
+  
+  // Clamp to valid range
+  targetScrollPosition = clamp(targetScrollPosition, 0, timelineState.totalWidth - timelineState.viewportWidth);
+  
+  // Smooth scroll animation
+  if (TIMELINE_CONFIG.SMOOTH_SCROLL) {
+    smoothScrollTo(targetScrollPosition);
+  } else {
+    timelineElements.scrollContainer.scrollLeft = targetScrollPosition;
+  }
+}
+
+/**
+ * Smooth scroll animation
+ * @param {number} targetPosition - Target scroll position
+ */
+function smoothScrollTo(targetPosition) {
+  if (scrollAnimationId) {
+    cancelAnimationFrame(scrollAnimationId);
+  }
+  
+  const startPosition = timelineElements.scrollContainer.scrollLeft;
+  const distance = targetPosition - startPosition;
+  const duration = TIMELINE_CONFIG.SCROLL_DURATION;
+  const startTime = performance.now();
+  
+  function animate(currentTime) {
+    const elapsed = currentTime - startTime;
+    const progress = Math.min(elapsed / duration, 1);
     
-  } catch (error) {
-    console.error('❌ Timeline selection failed:', error);
-  }
-}
-
-function setupTimelineEventListeners() {
-  if (!timelineState.track) return;
-  
-  timelineState.track.addEventListener('click', (event) => {
-    const item = event.target.closest('.timeline-item');
-    if (item) {
-      const eventId = item.dataset.eventId;
-      storeUtils.setActiveEvent(eventId);
-    }
-  });
-  
-  timelineState.track.addEventListener('keydown', (event) => {
-    const item = event.target.closest('.timeline-item');
-    if (!item) return;
+    // Easing function (ease-out)
+    const easeOut = 1 - Math.pow(1 - progress, 3);
     
-    switch (event.key) {
-      case 'Enter':
-      case ' ':
-        event.preventDefault();
-        item.click();
-        break;
-        
-      case 'ArrowLeft':
-        event.preventDefault();
-        navigateTimeline(item, -1);
-        break;
-        
-      case 'ArrowRight':
-        event.preventDefault();
-        navigateTimeline(item, 1);
-        break;
-        
-      case 'Home':
-        event.preventDefault();
-        focusTimelineItem(0);
-        break;
-        
-      case 'End':
-        event.preventDefault();
-        focusTimelineItem(timelineState.items.length - 1);
-        break;
-    }
-  });
-  
-  attachHoverPopups();
-}
-
-export function attachHoverPopups() {
-  if (!timelineState.track) return;
-  
-  timelineState.track.addEventListener('mouseenter', (event) => {
-    const item = event.target.closest('.timeline-item');
-    if (item) {
-      showTimelinePopup(item);
-    }
-  }, true);
-  
-  timelineState.track.addEventListener('mouseleave', (event) => {
-    const item = event.target.closest('.timeline-item');
-    if (item) {
-      hideTimelinePopup();
-    }
-  }, true);
-}
-
-function showTimelinePopup(item) {
-  if (timelineState.hoverTimeout) {
-    clearTimeout(timelineState.hoverTimeout);
-  }
-  
-  timelineState.hoverTimeout = setTimeout(() => {
-    const eventId = item.dataset.eventId;
-    const event = timelineState.sortedEvents.find(e => e.id === eventId);
+    const currentPosition = startPosition + (distance * easeOut);
+    timelineElements.scrollContainer.scrollLeft = currentPosition;
     
-    if (event) {
-      createTimelinePopup(item, event);
+    if (progress < 1) {
+      scrollAnimationId = requestAnimationFrame(animate);
+    } else {
+      scrollAnimationId = null;
     }
-  }, TIMELINE_CONFIG.hoverDelay);
-}
-
-function hideTimelinePopup() {
-  if (timelineState.hoverTimeout) {
-    clearTimeout(timelineState.hoverTimeout);
-    timelineState.hoverTimeout = null;
   }
   
-  const existingPopup = document.querySelector('.timeline-popup');
-  if (existingPopup) {
-    existingPopup.remove();
+  scrollAnimationId = requestAnimationFrame(animate);
+}
+
+/**
+ * Show hover popup with lazy positioning
+ * @param {Object} event - Event data
+ * @param {HTMLElement} target - Target element
+ */
+function showHoverPopup(event, target) {
+  const popup = timelineElements.hoverPopup;
+  const rect = target.getBoundingClientRect();
+  const containerRect = timelineElements.container.getBoundingClientRect();
+  
+  // Update popup content
+  qs('.popup-title', popup).textContent = event.title;
+  qs('.popup-date', popup).textContent = formatDate(event.timestamp, 'full');
+  qs('.popup-type', popup).textContent = `${event.type} • ${event.severity}`;
+  
+  // Position popup
+  const popupWidth = 250; // Estimated width
+  const popupHeight = 80; // Estimated height
+  
+  let left = rect.left - containerRect.left + (rect.width / 2) - (popupWidth / 2);
+  let top = rect.top - containerRect.top - popupHeight - 10;
+  
+  // Keep popup in bounds
+  const maxLeft = timelineElements.container.clientWidth - popupWidth - 10;
+  left = clamp(left, 10, maxLeft);
+  
+  if (top < 10) {
+    top = rect.bottom - containerRect.top + 10;
   }
+  
+  popup.style.left = `${left}px`;
+  popup.style.top = `${top}px`;
+  popup.style.display = 'block';
 }
 
-function createTimelinePopup(item, event) {
-  hideTimelinePopup();
-  
-  const popup = document.createElement('div');
-  popup.className = 'timeline-popup';
-  popup.setAttribute('role', 'tooltip');
-  
-  popup.innerHTML = '<div class="timeline-popup-header"><h4 class="timeline-popup-title">' + event.title + '</h4><span class="timeline-popup-type">' + event.type + '</span></div><div class="timeline-popup-body"><div class="timeline-popup-date">' + formatDate(event.date) + '</div><div class="timeline-popup-location">' + event.location.name + '</div><div class="timeline-popup-severity">Severity: ' + event.severity + '</div><div class="timeline-popup-summary">' + event.summary + '</div></div>';
-  
-  const itemRect = item.getBoundingClientRect();
-  const containerRect = timelineState.container.getBoundingClientRect();
-  
-  popup.style.position = 'absolute';
-  popup.style.left = (itemRect.left - containerRect.left + (itemRect.width / 2)) + 'px';
-  popup.style.top = (itemRect.top - containerRect.top - 10) + 'px';
-  
-  timelineState.container.appendChild(popup);
-  
-  setTimeout(() => {
-    if (popup.parentNode) {
-      popup.remove();
-    }
-  }, 3000);
+/**
+ * Hide hover popup
+ */
+function hideHoverPopup() {
+  timelineElements.hoverPopup.style.display = 'none';
 }
 
-function navigateTimeline(currentItem, direction) {
-  const currentIndex = parseInt(currentItem.dataset.eventIndex);
-  const newIndex = currentIndex + direction;
-  
-  if (newIndex >= 0 && newIndex < timelineState.items.length) {
-    focusTimelineItem(newIndex);
-  }
+/**
+ * Handle window resize
+ */
+function handleResize() {
+  updateViewportSize();
+  renderTimeline();
 }
 
-function focusTimelineItem(index) {
-  if (index >= 0 && index < timelineState.items.length) {
-    const item = timelineState.items[index];
-    item.focus();
-    scrollTimelineToItem(item);
-  }
-}
-
-function scrollTimelineToItem(item) {
-  if (!item || !timelineState.container) return;
-  
-  const itemRect = item.getBoundingClientRect();
-  const containerRect = timelineState.container.getBoundingClientRect();
-  
-  if (itemRect.left < containerRect.left || itemRect.right > containerRect.right) {
-    const scrollLeft = item.offsetLeft - (timelineState.container.clientWidth / 2);
-    
-    timelineState.container.scrollTo({
-      left: Math.max(0, scrollLeft),
-      behavior: 'smooth'
-    });
+/**
+ * Toggle timeline playback
+ */
+function togglePlayback() {
+  if (timelineState.isPlaying) {
+    pausePlayback();
+  } else {
+    startPlayback();
   }
 }
 
-function updateTimelineSelection(activeEventId) {
-  selectTimelineItem(activeEventId);
-}
-
-function updateStoryModeIndicator(storyState) {
-  timelineState.track.classList.toggle('timeline-track--story-mode', 
-    storyState.status !== STORY_STATUS.IDLE);
-    
-  if (storyState.status !== STORY_STATUS.IDLE && storyState.order.length > 0) {
-    const currentEventId = storyState.order[storyState.index];
-    selectTimelineItem(currentEventId);
-  }
-}
-
-function clearTimeline() {
-  if (timelineState.track) {
-    timelineState.track.innerHTML = '';
-    timelineState.items = [];
-    timelineState.selectedItem = null;
-  }
-}
-
-function showTimelinePlaceholder(message) {
-  const placeholder = document.createElement('div');
-  placeholder.className = 'timeline-placeholder';
-  placeholder.textContent = message;
-  placeholder.setAttribute('role', 'status');
-  placeholder.setAttribute('aria-live', 'polite');
+/**
+ * Start timeline playback
+ */
+function startPlayback() {
+  timelineState.isPlaying = true;
+  timelineElements.playButton.innerHTML = '<span class=\"icon\">⏸</span>';
+  timelineElements.playButton.setAttribute('aria-label', 'Pause timeline');
   
-  timelineState.track.appendChild(placeholder);
+  // TODO: Implement playback logic
+  console.log('📈 Timeline playback started');
 }
 
-function calculateTrackWidth(itemCount) {
-  return Math.max(
-    itemCount * (TIMELINE_CONFIG.itemWidth + TIMELINE_CONFIG.itemSpacing) + TIMELINE_CONFIG.itemSpacing,
-    timelineState.container.clientWidth
-  );
+/**
+ * Pause timeline playback
+ */
+function pausePlayback() {
+  timelineState.isPlaying = false;
+  timelineElements.playButton.innerHTML = '<span class=\"icon\">▶</span>';
+  timelineElements.playButton.setAttribute('aria-label', 'Play timeline');
+  
+  if (animationFrameId) {
+    cancelAnimationFrame(animationFrameId);
+    animationFrameId = null;
+  }
+  
+  console.log('📈 Timeline playback paused');
 }
 
-function updateResultsCounter(count) {
-  const counter = document.querySelector('#results-count');
-  if (counter) {
-    counter.textContent = count;
-    counter.setAttribute('aria-live', 'polite');
+/**
+ * Zoom timeline
+ * @param {number} factor - Zoom factor
+ */
+function zoomTimeline(factor) {
+  const newZoom = clamp(timelineState.zoom * factor, 0.5, 3.0);
+  
+  if (newZoom !== timelineState.zoom) {
+    timelineState.zoom = newZoom;
+    updateViewportSize();
+    renderTimeline();
+    updateZoomDisplay();
   }
 }
 
-function formatDate(dateString) {
-  return new Date(dateString).toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit'
-  });
+/**
+ * Update zoom level display
+ */
+function updateZoomDisplay() {
+  const percentage = Math.round(timelineState.zoom * 100);
+  timelineElements.zoomControls.level.textContent = `${percentage}%`;
 }
 
-export function cleanupTimeline() {
-  hideTimelinePopup();
-  clearTimeline();
-  timelineState.isInitialized = false;
+/**
+ * Update speed display
+ */
+function updateSpeedDisplay() {
+  console.log(`📈 Timeline speed: ${timelineState.playbackSpeed}x`);
+}
+
+/**
+ * Update timeline info display
+ */
+function updateTimelineInfo() {
+  const count = timelineState.filteredEvents.length;
+  const total = timelineState.events.length;
   
-  console.log('🧹 Timeline cleaned up');
+  let text = `${count} events`;
+  if (count !== total) {
+    text += ` (${total} total)`;
+  }
+  
+  timelineElements.eventCount.textContent = text;
 }
 
-export { timelineState, TIMELINE_CONFIG };
+/**
+ * Update timeline from store state
+ * @param {Object} state - Store state
+ */
+function updateTimelineFromState(state) {
+  if (state.events && state.events !== timelineState.events) {
+    loadEvents(state.events);
+  }
+  
+  if (state.selectedEvent && state.selectedEvent.id !== timelineState.activeEventId) {
+    setActiveEvent(state.selectedEvent.id);
+  }
+}
+
+/**
+ * Get timeline performance stats
+ * @returns {Object} Performance statistics
+ */
+export function getTimelineStats() {
+  return {
+    totalEvents: timelineState.events.length,
+    filteredEvents: timelineState.filteredEvents.length,
+    visibleEvents: timelineState.visibleEvents.length,
+    isVirtualized: timelineState.isVirtualized,
+    zoom: timelineState.zoom,
+    renderRange: [timelineState.renderStartIndex, timelineState.renderEndIndex]
+  };
+}
+
+console.log('📈 Enhanced Timeline module loaded');

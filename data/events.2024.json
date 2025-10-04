@@ -1,0 +1,72 @@
+{
+  "schemaVersion": 1,
+  "year": 2024,
+  "events": [
+    {
+      "id": "fire_california_2024_001",
+      "title": "Park Fire Complex",
+      "timestamp": "2024-07-24T16:45:00Z",
+      "type": "fire",
+      "severity": "high",
+      "instrument": "viirs",
+      "coordinates": {
+        "lat": 39.8075,
+        "lng": -121.4944,
+        "bounds": {
+          "north": 40.3075,
+          "south": 39.3075,
+          "east": -120.9944,
+          "west": -121.9944
+        }
+      },
+      "description": "Fourth-largest wildfire in California history, burning over 429,000 acres",
+      "metadata": {
+        "area_affected_km2": 173600,
+        "confidence": 98,
+        "fire_radiative_power": 3200,
+        "structures_destroyed": 709
+      },
+      "media": {
+        "thumbnail": "media/2024/fire_california_001_thumb.webp",
+        "full_image": "media/2024/fire_california_001_full.png"
+      },
+      "sources": [
+        "https://inciweb.nwcg.gov/",
+        "https://firms.modaps.eosdis.nasa.gov/"
+      ]
+    },
+    {
+      "id": "precip_valencia_2024_002",
+      "title": "Valencia Flash Floods",
+      "timestamp": "2024-10-29T14:20:00Z",
+      "type": "precipitation",
+      "severity": "high",
+      "instrument": "goes",
+      "coordinates": {
+        "lat": 39.4699,
+        "lng": -0.3763,
+        "bounds": {
+          "north": 39.9699,
+          "south": 38.9699,
+          "east": 0.1237,
+          "west": -0.8763
+        }
+      },
+      "description": "DANA weather phenomenon brings catastrophic flooding to Valencia region",
+      "metadata": {
+        "rainfall_mm": 491,
+        "duration_hours": 8,
+        "flood_extent_km2": 15000,
+        "casualties": 230
+      },
+      "media": {
+        "thumbnail": "media/2024/precip_valencia_002_thumb.webp",
+        "full_image": "media/2024/precip_valencia_002_full.png"
+      },
+      "sources": [
+        "https://www.aemet.es/",
+        "https://gpm.nasa.gov/"
+      ]
+    }
+  ]
+}

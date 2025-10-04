@@ -1,47 +1,74 @@
-// Notifications Module for Interactive Earth Story Map
-const NOTIFICATION_CONFIG = {
-  containerSelector: '#notifications',
-  position: 'top-right',
-  maxVisible: 5,
-  defaultDuration: 5000,
-  animationDuration: 300
-};
+/**
+ * @fileoverview Notifications module for user feedback
+ * Provides toast notifications and status messages
+ */
 
-const NOTIFICATION_TYPES = {
-  INFO: 'info',
-  SUCCESS: 'success',
-  WARNING: 'warning',
-  ERROR: 'error',
-  LOADING: 'loading'
-};
+import { eventBus } from './js/store.js';
+import { el, on } from './js/utils/dom.js';
 
+/**
+ * Notification state
+ */
 let notificationState = {
   container: null,
-  notifications: [],
-  idCounter: 0,
-  isInitialized: false
+  notifications: new Map(),
+  nextId: 1,
+  maxNotifications: 5
 };
 
-export function initNotifications(containerSelector = '#notifications', options = {}) {
-  try {
-    console.log('🔔 Initializing notifications...');
-    
-    const config = { ...NOTIFICATION_CONFIG, ...options };
-    
-    // Find or create container
-    notificationState.container = document.querySelector(containerSelector);
-    if (!notificationState.container) {
-      notificationState.container = document.createElement('div');
-      notificationState.container.id = 'notifications';
-      notificationState.container.className = `notifications-container notifications-container--${config.position}`;
-      notificationState.container.setAttribute('aria-live', 'polite');
-      notificationState.container.setAttribute('aria-label', 'Notifications');
-      document.body.appendChild(notificationState.container);
+/**
+ * Notification configuration
+ */
+const NOTIFICATION_CONFIG = {
+  types: {
+    success: {
+      icon: '✅',
+      className: 'notification--success',
+      defaultDuration: 4000
+    },
+    error: {
+      icon: '❌',
+      className: 'notification--error',
+      defaultDuration: 6000
+    },
+    warning: {
+      icon: '⚠️',
+      className: 'notification--warning',
+      defaultDuration: 5000
+    },
+    info: {
+      icon: 'ℹ️',
+      className: 'notification--info',
+      defaultDuration: 4000
+    },
+    loading: {
+      icon: '⏳',
+      className: 'notification--loading',
+      defaultDuration: 0 // Persistent until manually dismissed
     }
+  },
+  animations: {
+    slideIn: 'notification--slide-in',
+    slideOut: 'notification--slide-out',
+    duration: 300
+  }
+};
+
+/**
+ * Initialize notifications module
+ * @returns {boolean} Success status
+ */
+export function initNotifications() {
+  try {
+    console.log('🔔 Initializing notifications module...');
     
-    notificationState.isInitialized = true;
-    console.log('✅ Notifications initialized successfully');
+    // Create notification container
+    createNotificationContainer();
     
+    // Setup event listeners
+    setupNotificationEvents();
+    
+    console.log('✅ Notifications module initialized');
     return true;
     
   } catch (error) {
@@ -50,236 +77,481 @@ export function initNotifications(containerSelector = '#notifications', options 
   }
 }
 
-export function pushNotification(notification) {
-  if (!notificationState.isInitialized) {
-    console.warn('⚠️ Notifications not initialized');
-    return null;
+/**
+ * Create notification container
+ */
+function createNotificationContainer() {
+  // Check if container already exists
+  let container = document.querySelector('.notifications-container');
+  
+  if (!container) {
+    container = el('div', {
+      className: 'notifications-container',
+      'aria-live': 'polite',
+      'aria-label': 'Notifications'
+    });
+    
+    document.body.appendChild(container);
   }
   
-  try {
-    const id = ++notificationState.idCounter;
-    
-    const notificationData = {
-      id,
-      type: notification.type || NOTIFICATION_TYPES.INFO,
-      title: notification.title || '',
-      message: notification.message || '',
-      duration: notification.duration || NOTIFICATION_CONFIG.defaultDuration,
-      persistent: notification.persistent || false,
-      actions: notification.actions || [],
-      timestamp: Date.now()
-    };
-    
-    const element = createNotificationElement(notificationData);
-    
-    // Add to container
-    notificationState.container.appendChild(element);
-    notificationState.notifications.push({ data: notificationData, element });
-    
-    // Trigger animation
-    setTimeout(() => {
-      element.classList.add('notification--visible');
-    }, 10);
-    
-    // Auto-dismiss if not persistent
-    if (!notificationData.persistent && notificationData.duration > 0) {
-      autoDismiss(id, notificationData.duration);
-    }
-    
-    // Remove old notifications if too many
-    manageNotificationCount();
-    
-    console.log('🔔 Notification pushed:', notificationData.title);
-    
-    return id;
-    
-  } catch (error) {
-    console.error('❌ Notification creation failed:', error);
-    return null;
-  }
+  notificationState.container = container;
 }
 
-function createNotificationElement(notification) {
-  const element = document.createElement('div');
-  element.className = `notification notification--${notification.type}`;
-  element.dataset.notificationId = notification.id;
-  element.setAttribute('role', 'alert');
+/**
+ * Setup notification event listeners
+ */
+function setupNotificationEvents() {
+  // Listen for notification events
+  eventBus.on('showNotification', (options) => {
+    showNotification(options);
+  });
   
-  const iconMap = {
-    [NOTIFICATION_TYPES.INFO]: 'ℹ️',
-    [NOTIFICATION_TYPES.SUCCESS]: '✅',
-    [NOTIFICATION_TYPES.WARNING]: '⚠️',
-    [NOTIFICATION_TYPES.ERROR]: '❌',
-    [NOTIFICATION_TYPES.LOADING]: '⏳'
-  };
+  eventBus.on('hideNotification', (id) => {
+    hideNotification(id);
+  });
   
-  const icon = iconMap[notification.type] || iconMap[NOTIFICATION_TYPES.INFO];
+  eventBus.on('clearAllNotifications', () => {
+    clearAllNotifications();
+  });
   
-  element.innerHTML = `
-    <div class="notification-content">
-      <div class="notification-icon">${icon}</div>
-      <div class="notification-text">
-        ${notification.title ? `<div class="notification-title">${notification.title}</div>` : ''}
-        ${notification.message ? `<div class="notification-message">${notification.message}</div>` : ''}
-      </div>
-      <button class="notification-close" aria-label="Close notification">×</button>
+  // Application events that trigger notifications
+  eventBus.on('eventsLoaded', (events) => {
+    showNotification({
+      type: 'success',
+      title: 'Events Loaded',
+      message: `Successfully loaded ${events.length} climate events`,
+      duration: 3000
+    });
+  });
+  
+  eventBus.on('eventSelected', (event) => {
+    showNotification({
+      type: 'info',
+      title: 'Event Selected',
+      message: `Selected: ${event.title}`,
+      duration: 2000
+    });
+  });
+  
+  eventBus.on('storyStarted', () => {
+    showNotification({
+      type: 'info',
+      title: 'Story Mode',
+      message: 'Story mode started. Use space to pause/play.',
+      duration: 4000
+    });
+  });
+  
+  eventBus.on('moduleError', (moduleName, error) => {
+    showNotification({
+      type: 'error',
+      title: 'Module Error',
+      message: `${moduleName} module failed to load: ${error.message}`,
+      duration: 8000
+    });
+  });
+  
+  eventBus.on('appError', (error) => {
+    showNotification({
+      type: 'error',
+      title: 'Application Error',
+      message: error.message || 'An unexpected error occurred',
+      duration: 0 // Persistent
+    });
+  });
+}
+
+/**
+ * Show notification
+ * @param {import('./js/types.js').NotificationOptions} options - Notification options
+ * @returns {string} Notification ID
+ */
+export function showNotification(options) {
+  const {
+    type = 'info',
+    title = '',
+    message = '',
+    duration = null,
+    actions = [],
+    persistent = false
+  } = options;
+  
+  // Validate type
+  if (!NOTIFICATION_CONFIG.types[type]) {
+    console.warn(`Unknown notification type: ${type}`);
+    return null;
+  }
+  
+  const config = NOTIFICATION_CONFIG.types[type];
+  const id = `notification-${notificationState.nextId++}`;
+  
+  // Determine duration
+  const notificationDuration = persistent ? 0 : 
+    (duration !== null ? duration : config.defaultDuration);
+  
+  // Create notification element
+  const notification = createNotificationElement({
+    id,
+    type,
+    title,
+    message,
+    actions,
+    config
+  });
+  
+  // Add to container
+  notificationState.container.appendChild(notification);
+  
+  // Store notification data
+  notificationState.notifications.set(id, {
+    element: notification,
+    type,
+    title,
+    message,
+    duration: notificationDuration,
+    timestamp: Date.now()
+  });
+  
+  // Trigger slide-in animation
+  setTimeout(() => {
+    notification.classList.add(NOTIFICATION_CONFIG.animations.slideIn);
+  }, 10);
+  
+  // Auto-dismiss if not persistent
+  if (notificationDuration > 0) {
+    setTimeout(() => {
+      hideNotification(id);
+    }, notificationDuration);
+  }
+  
+  // Manage notification limit
+  manageNotificationLimit();
+  
+  console.log(`🔔 Notification shown: ${type} - ${title}`);
+  return id;
+}
+
+/**
+ * Create notification element
+ * @param {Object} options - Element options
+ * @returns {HTMLElement} Notification element
+ */
+function createNotificationElement(options) {
+  const { id, type, title, message, actions, config } = options;
+  
+  const notification = el('div', {
+    className: `notification ${config.className}`,
+    id: id,
+    role: 'alert',
+    'aria-live': 'assertive'
+  });
+  
+  notification.innerHTML = `
+    <div class="notification__icon">${config.icon}</div>
+    <div class="notification__content">
+      ${title ? `<div class="notification__title">${title}</div>` : ''}
+      ${message ? `<div class="notification__message">${message}</div>` : ''}
+      ${actions.length > 0 ? createActionsHTML(actions) : ''}
     </div>
-    ${notification.actions.length > 0 ? createActionsHTML(notification.actions) : ''}
+    <button class="notification__close" aria-label="Close notification">×</button>
   `;
   
-  // Add event listeners
-  setupNotificationListeners(element, notification);
+  // Setup event listeners
+  setupNotificationElementEvents(notification, id, actions);
   
-  return element;
+  return notification;
 }
 
+/**
+ * Create actions HTML
+ * @param {Array} actions - Action buttons
+ * @returns {string} Actions HTML
+ */
 function createActionsHTML(actions) {
-  const actionsHTML = actions.map(action => 
-    `<button class="notification-action" data-action="${action.label}">${action.label}</button>`
-  ).join('');
+  const actionsHTML = actions.map((action, index) => `
+    <button class="notification__action" data-action-index="${index}">
+      ${action.label}
+    </button>
+  `).join('');
   
-  return `<div class="notification-actions">${actionsHTML}</div>`;
+  return `<div class="notification__actions">${actionsHTML}</div>`;
 }
 
-function setupNotificationListeners(element, notification) {
+/**
+ * Setup notification element event listeners
+ * @param {HTMLElement} element - Notification element
+ * @param {string} id - Notification ID
+ * @param {Array} actions - Action buttons
+ */
+function setupNotificationElementEvents(element, id, actions) {
   // Close button
-  const closeBtn = element.querySelector('.notification-close');
-  if (closeBtn) {
-    closeBtn.addEventListener('click', () => {
-      removeNotification(notification.id);
-    });
-  }
+  const closeBtn = element.querySelector('.notification__close');
+  on(closeBtn, 'click', () => {
+    hideNotification(id);
+  });
   
   // Action buttons
-  const actionBtns = element.querySelectorAll('.notification-action');
-  actionBtns.forEach(btn => {
-    btn.addEventListener('click', () => {
-      const actionLabel = btn.dataset.action;
-      const action = notification.actions.find(a => a.label === actionLabel);
+  const actionBtns = element.querySelectorAll('.notification__action');
+  actionBtns.forEach((btn, index) => {
+    on(btn, 'click', () => {
+      const action = actions[index];
       if (action && action.handler) {
         action.handler();
       }
-      removeNotification(notification.id);
+      
+      // Auto-dismiss after action unless specified otherwise
+      if (!action.keepOpen) {
+        hideNotification(id);
+      }
     });
   });
-}
-
-export function removeNotification(notificationId) {
-  if (!notificationState.isInitialized) return;
   
-  try {
-    const index = notificationState.notifications.findIndex(n => n.data.id === notificationId);
-    
-    if (index !== -1) {
-      const { element } = notificationState.notifications[index];
-      
-      // Animate out
-      element.classList.add('notification--removing');
-      
-      setTimeout(() => {
-        if (element.parentNode) {
-          element.parentNode.removeChild(element);
-        }
-        notificationState.notifications.splice(index, 1);
-      }, NOTIFICATION_CONFIG.animationDuration);
-      
-      console.log('🗑️ Notification removed:', notificationId);
+  // Auto-dismiss on click (except for actions and close button)
+  on(element, 'click', (event) => {
+    if (!event.target.closest('.notification__action, .notification__close')) {
+      hideNotification(id);
     }
-    
-  } catch (error) {
-    console.error('❌ Notification removal failed:', error);
-  }
+  });
+  
+  // Pause auto-dismiss on hover
+  let originalTimeout = null;
+  on(element, 'mouseenter', () => {
+    // Implementation for pausing auto-dismiss would go here
+  });
+  
+  on(element, 'mouseleave', () => {
+    // Implementation for resuming auto-dismiss would go here
+  });
 }
 
-export function autoDismiss(notificationId, duration) {
+/**
+ * Hide notification
+ * @param {string} id - Notification ID
+ */
+export function hideNotification(id) {
+  const notificationData = notificationState.notifications.get(id);
+  
+  if (!notificationData) {
+    console.warn(`Notification not found: ${id}`);
+    return;
+  }
+  
+  const { element } = notificationData;
+  
+  // Trigger slide-out animation
+  element.classList.remove(NOTIFICATION_CONFIG.animations.slideIn);
+  element.classList.add(NOTIFICATION_CONFIG.animations.slideOut);
+  
+  // Remove from DOM after animation
   setTimeout(() => {
-    removeNotification(notificationId);
-  }, duration);
+    if (element.parentNode) {
+      element.parentNode.removeChild(element);
+    }
+    notificationState.notifications.delete(id);
+  }, NOTIFICATION_CONFIG.animations.duration);
+  
+  console.log(`🔔 Notification hidden: ${id}`);
 }
 
-function manageNotificationCount() {
-  while (notificationState.notifications.length > NOTIFICATION_CONFIG.maxVisible) {
-    const oldest = notificationState.notifications[0];
-    if (!oldest.data.persistent) {
-      removeNotification(oldest.data.id);
-    } else {
-      break;
+/**
+ * Clear all notifications
+ */
+export function clearAllNotifications() {
+  const notifications = Array.from(notificationState.notifications.keys());
+  
+  notifications.forEach(id => {
+    hideNotification(id);
+  });
+  
+  console.log('🔔 All notifications cleared');
+}
+
+/**
+ * Manage notification limit
+ */
+function manageNotificationLimit() {
+  const notifications = Array.from(notificationState.notifications.values());
+  
+  if (notifications.length > notificationState.maxNotifications) {
+    // Remove oldest notifications
+    const sortedNotifications = notifications.sort((a, b) => a.timestamp - b.timestamp);
+    const toRemove = sortedNotifications.slice(0, notifications.length - notificationState.maxNotifications);
+    
+    toRemove.forEach(notification => {
+      const id = notification.element.id;
+      hideNotification(id);
+    });
+  }
+}
+
+/**
+ * Show loading notification
+ * @param {string} message - Loading message
+ * @returns {string} Notification ID
+ */
+export function showLoading(message = 'Loading...') {
+  return showNotification({
+    type: 'loading',
+    title: 'Loading',
+    message: message,
+    persistent: true
+  });
+}
+
+/**
+ * Hide loading notification
+ * @param {string} id - Loading notification ID
+ */
+export function hideLoading(id) {
+  hideNotification(id);
+}
+
+/**
+ * Show success notification
+ * @param {string} title - Success title
+ * @param {string} message - Success message
+ * @returns {string} Notification ID
+ */
+export function showSuccess(title, message) {
+  return showNotification({
+    type: 'success',
+    title: title,
+    message: message
+  });
+}
+
+/**
+ * Show error notification
+ * @param {string} title - Error title
+ * @param {string} message - Error message
+ * @returns {string} Notification ID
+ */
+export function showError(title, message) {
+  return showNotification({
+    type: 'error',
+    title: title,
+    message: message,
+    duration: 8000
+  });
+}
+
+/**
+ * Show warning notification
+ * @param {string} title - Warning title
+ * @param {string} message - Warning message
+ * @returns {string} Notification ID
+ */
+export function showWarning(title, message) {
+  return showNotification({
+    type: 'warning',
+    title: title,
+    message: message
+  });
+}
+
+/**
+ * Show info notification
+ * @param {string} title - Info title
+ * @param {string} message - Info message
+ * @returns {string} Notification ID
+ */
+export function showInfo(title, message) {
+  return showNotification({
+    type: 'info',
+    title: title,
+    message: message
+  });
+}
+
+/**
+ * Show confirmation notification with actions
+ * @param {string} title - Confirmation title
+ * @param {string} message - Confirmation message
+ * @param {function} onConfirm - Confirm callback
+ * @param {function} onCancel - Cancel callback
+ * @returns {string} Notification ID
+ */
+export function showConfirmation(title, message, onConfirm, onCancel) {
+  return showNotification({
+    type: 'warning',
+    title: title,
+    message: message,
+    persistent: true,
+    actions: [
+      {
+        label: 'Confirm',
+        handler: onConfirm,
+        keepOpen: false
+      },
+      {
+        label: 'Cancel',
+        handler: onCancel || (() => {}),
+        keepOpen: false
+      }
+    ]
+  });
+}
+
+/**
+ * Get notification count
+ * @returns {number} Number of active notifications
+ */
+export function getNotificationCount() {
+  return notificationState.notifications.size;
+}
+
+/**
+ * Get notification by ID
+ * @param {string} id - Notification ID
+ * @returns {Object|null} Notification data
+ */
+export function getNotification(id) {
+  return notificationState.notifications.get(id) || null;
+}
+
+/**
+ * Update notification message
+ * @param {string} id - Notification ID
+ * @param {string} message - New message
+ */
+export function updateNotification(id, message) {
+  const notification = notificationState.notifications.get(id);
+  
+  if (notification) {
+    const messageEl = notification.element.querySelector('.notification__message');
+    if (messageEl) {
+      messageEl.textContent = message;
+      notification.message = message;
     }
   }
 }
 
-// Convenience methods
-export function showInfo(title, message, options = {}) {
-  return pushNotification({
-    type: NOTIFICATION_TYPES.INFO,
-    title,
-    message,
-    ...options
-  });
-}
-
-export function showSuccess(title, message, options = {}) {
-  return pushNotification({
-    type: NOTIFICATION_TYPES.SUCCESS,
-    title,
-    message,
-    ...options
-  });
-}
-
-export function showWarning(title, message, options = {}) {
-  return pushNotification({
-    type: NOTIFICATION_TYPES.WARNING,
-    title,
-    message,
-    ...options
-  });
-}
-
-export function showError(title, message, options = {}) {
-  return pushNotification({
-    type: NOTIFICATION_TYPES.ERROR,
-    title,
-    message,
-    persistent: true,
-    ...options
-  });
-}
-
-export function showLoading(title, message, options = {}) {
-  return pushNotification({
-    type: NOTIFICATION_TYPES.LOADING,
-    title,
-    message,
-    persistent: true,
-    duration: 0,
-    ...options
-  });
-}
-
-export function clearAllNotifications(includePersistent = false) {
-  const toRemove = includePersistent ? 
-    [...notificationState.notifications] :
-    notificationState.notifications.filter(n => !n.data.persistent);
+/**
+ * Cleanup notifications module
+ */
+function cleanup() {
+  clearAllNotifications();
   
-  toRemove.forEach(notification => {
-    removeNotification(notification.data.id);
-  });
-}
-
-export function setNotificationPosition(position) {
-  if (notificationState.container) {
-    notificationState.container.className = `notifications-container notifications-container--${position}`;
+  if (notificationState.container && notificationState.container.parentNode) {
+    notificationState.container.parentNode.removeChild(notificationState.container);
   }
+  
+  console.log('🧹 Notifications module cleaned up');
 }
 
-export const notificationUtils = {
-  showInfo,
-  showSuccess,
-  showWarning,
-  showError,
-  showLoading,
-  clearAllNotifications
-};
+// Module event handling
+eventBus.on('cleanup', cleanup);
 
-export { notificationState, NOTIFICATION_CONFIG, NOTIFICATION_TYPES };
+// Export public interface
+export {
+  notificationState,
+  showLoading,
+  hideLoading,
+  showSuccess,
+  showError,
+  showWarning,
+  showInfo,
+  showConfirmation,
+  getNotificationCount,
+  updateNotification
+};

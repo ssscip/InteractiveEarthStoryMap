@@ -5,6 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="Interactive Earth Story Map - Explore climate anomalies and environmental changes through satellite data visualization">
     <title>Interactive Earth Story Map</title>
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+          integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+          crossorigin=""/>
+    
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -67,6 +73,15 @@
                     <span id="year-help" class="visually-hidden">Filter data by year</span>
                 </div>
 
+                <div class="filter-group">
+                    <label for="dataset-select" class="filter-label">Dataset:</label>
+                    <select id="dataset-select" class="filter-select" aria-describedby="dataset-help">
+                        <option value="">Standard</option>
+                        <option value="2024-perf">Performance Test (500 events)</option>
+                    </select>
+                    <span id="dataset-help" class="visually-hidden">Select dataset for testing</span>
+                </div>
+
                 <div class="results-counter">
                     <span class="counter-label">Results:</span>
                     <span id="results-count" class="counter-value" aria-live="polite">0</span>
@@ -92,6 +107,55 @@
         <!-- Map Section -->
         <section class="map-wrapper" role="region" aria-labelledby="map-heading">
             <h2 id="map-heading" class="visually-hidden">Interactive Earth Map</h2>
+            
+            <!-- Map Controls Panel -->
+            <div class="map-controls-panel">
+                <div class="map-controls-group">
+                    <div class="map-control">
+                        <label for="mapLayerSelect" class="map-control__label">Layer:</label>
+                        <select id="mapLayerSelect" class="map-control__select map__layer-select" aria-label="Map layer">
+                            <option value="satellite">Satellite</option>
+                            <option value="terrain">Terrain</option>
+                            <option value="street">Street</option>
+                            <option value="hybrid">Hybrid</option>
+                        </select>
+                    </div>
+                    
+                    <div class="map-control">
+                        <label for="mapSearchInput" class="map-control__label">Search:</label>
+                        <div class="map-search-wrapper">
+                            <input 
+                                id="mapSearchInput"
+                                type="text" 
+                                class="map-control__input map__search-input" 
+                                placeholder="Search location..."
+                                aria-label="Search location"
+                            >
+                            <button class="map-search-btn" aria-label="Search location">
+                                <span class="icon" aria-hidden="true">🔍</span>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="map-control">
+                        <span class="map-control__label">Zoom:</span>
+                        <div class="map-zoom-wrapper">
+                            <button class="map-zoom-btn map__zoom-in" aria-label="Zoom in">
+                                <span class="icon" aria-hidden="true">+</span>
+                            </button>
+                            <button class="map-zoom-btn map__zoom-out" aria-label="Zoom out">
+                                <span class="icon" aria-hidden="true">−</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="map-status">
+                    <span class="map-coordinates" id="mapCoordinates">Lat: 0°, Lng: 0°</span>
+                    <span class="map-loading" id="mapLoading" style="display: none;">Loading...</span>
+                </div>
+            </div>
+            
             <div id="mapContainer" class="map-container" role="application" aria-label="Interactive Earth map showing climate anomalies">
                 <div class="map-background-placeholder">
                     <span>Map will be rendered here</span>
@@ -106,30 +170,21 @@
         <!-- Story Mode Controls -->
         <section id="storyControls" class="story-controls" role="region" aria-labelledby="story-heading">
             <h2 id="story-heading" class="visually-hidden">Story Mode Controls</h2>
-            <div class="story-controls-container" role="group" aria-label="Story Mode Controls">
-                <button type="button" id="storyPlayBtn" class="story-btn story-btn--play" data-action="play" aria-label="Play story mode">
-                    <span class="btn-icon">▶</span>
-                    <span class="btn-text">Play Story</span>
-                </button>
-                <button type="button" id="storyPauseBtn" class="story-btn story-btn--pause" data-action="pause" aria-label="Pause story mode" style="display: none;">
-                    <span class="btn-icon">⏸</span>
-                    <span class="btn-text">Pause</span>
-                </button>
-                <button type="button" id="storyPrevBtn" class="story-btn story-btn--prev" data-action="prev" aria-label="Previous event">
-                    <span class="btn-icon">⏮</span>
-                </button>
-                <button type="button" id="storyNextBtn" class="story-btn story-btn--next" data-action="next" aria-label="Next event">
-                    <span class="btn-icon">⏭</span>
-                </button>
-                <button type="button" id="storyResetBtn" class="story-btn story-btn--reset" data-action="reset" aria-label="Reset story to beginning">
-                    <span class="btn-icon">🔄</span>
-                    <span class="btn-text">Reset</span>
-                </button>
-                <div class="story-progress" role="group" aria-label="Story progress">
-                    <div class="story-progress-bar">
+            <div class="story-bar" id="storyBar" data-story-status="idle">
+                <div class="story-btn-group" role="group" aria-label="Story playback">
+                    <button id="storyPlayPauseBtn" class="story-btn story-btn--primary" data-state="play" aria-label="Play story">
+                        <span class="icon" aria-hidden="true">▶</span>
+                        <span class="label">Play</span>
+                    </button>
+                    <button id="storyPrevBtn" class="story-btn story-btn--icon" aria-label="Previous event"><span class="icon" aria-hidden="true">⏮</span></button>
+                    <button id="storyNextBtn" class="story-btn story-btn--icon" aria-label="Next event"><span class="icon" aria-hidden="true">⏭</span></button>
+                    <button id="storyResetBtn" class="story-btn story-btn--icon" aria-label="Reset story"><span class="icon" aria-hidden="true">⟳</span></button>
+                </div>
+                <div class="story-progress-inline" aria-label="Story progress">
+                    <div class="story-progress-meter" id="storyProgressMeter">
                         <div class="story-progress-fill" id="storyProgressFill" style="width:0%"></div>
                     </div>
-                    <div class="story-progress-text" id="storyProgressText" aria-live="polite">0/0 (0%)</div>
+                    <span id="storyProgressText" class="story-progress-text" aria-live="polite">0/0</span>
                 </div>
             </div>
         </section>
@@ -185,10 +240,14 @@
     </footer>
 
     <!-- Scripts -->
-    <script type="module" src="main.js"></script>
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+            integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+            crossorigin=""></script>
     
-    <!-- TODO: Additional script includes for mapping libraries -->
-    <!-- <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script> -->
+    <script type="module" src="js/main.js"></script>
+    
+    <!-- TODO: Additional script includes for real map data integration -->
     <!-- <script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script> -->
 </body>
 </html>

@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Story Mode Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background: #1a1a1a;
+            color: white;
+        }
+        .story-controls {
+            margin-bottom: 20px;
+            padding: 20px;
+            background: #2a2a2a;
+            border-radius: 8px;
+        }
+        .story-button {
+            background: #2196F3;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            margin: 5px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .story-button:hover {
+            background: #1976D2;
+        }
+        .story-button:disabled {
+            background: #666;
+            cursor: not-allowed;
+        }
+        .state-display {
+            margin: 20px 0;
+            padding: 15px;
+            background: #2a2a2a;
+            border-radius: 8px;
+        }
+        .state-item {
+            margin: 5px 0;
+            padding: 5px;
+            background: #333;
+            border-radius: 4px;
+        }
+        .story-content {
+            margin: 20px 0;
+            padding: 20px;
+            background: #1e1e1e;
+            border-radius: 8px;
+            min-height: 200px;
+        }
+        .narration {
+            font-size: 18px;
+            line-height: 1.6;
+            margin-bottom: 15px;
+        }
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background: #333;
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #4CAF50, #8BC34A);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+    </style>
+</head>
+<body>
+    <h1>Story Mode State Machine Test</h1>
+    
+    <div class="story-controls">
+        <h3>Story Controls</h3>
+        <button class="story-button" id="start-btn" onclick="startStory()">Start Story</button>
+        <button class="story-button" id="pause-btn" onclick="pauseStory()" disabled>Pause</button>
+        <button class="story-button" id="resume-btn" onclick="resumeStory()" disabled>Resume</button>
+        <button class="story-button" id="stop-btn" onclick="stopStory()" disabled>Stop</button>
+        <button class="story-button" id="reset-btn" onclick="resetStory()">Reset</button>
+    </div>
+
+    <div class="state-display">
+        <h3>State Machine Status</h3>
+        <div class="state-item">Current State: <span id="current-state">IDLE</span></div>
+        <div class="state-item">Story Step: <span id="current-step">-</span></div>
+        <div class="state-item">Total Steps: <span id="total-steps">-</span></div>
+        <div class="state-item">Transitions: <span id="transition-count">0</span></div>
+        <div class="state-item">Errors: <span id="error-count">0</span></div>
+    </div>
+
+    <div class="story-content">
+        <h3>Story Content</h3>
+        <div class="progress-bar">
+            <div class="progress-fill" id="progress-fill"></div>
+        </div>
+        <div class="narration" id="narration">
+            Welcome to the Interactive Earth Story Map. Click "Start Story" to begin exploring climate anomalies and environmental changes.
+        </div>
+        <div id="story-data"></div>
+    </div>
+
+    <script type="module">
+        import { StoryStateMachine } from './js/storyStateMachine.js';
+        import { loadAllEvents } from './js/dataLoader.js';
+        
+        let storyMachine = null;
+        let currentStory = null;
+        let storyData = [];
+
+        // Initialize story machine
+        async function initStoryMachine() {
+            try {
+                // Load story configuration
+                const response = await fetch('./data/stories.json');
+                const storiesConfig = await response.json();
+                currentStory = storiesConfig.stories[0]; // Use first story
+                
+                // Load events data
+                storyData = await loadAllEvents();
+                
+                // Create state machine
+                storyMachine = new StoryStateMachine(currentStory);
+                
+                // Setup state change listener
+                storyMachine.onStateChange = (state, previousState) => {
+                    updateStateDisplay(state, previousState);
+                    updateControlButtons(state);
+                };
+                
+                // Setup step change listener
+                storyMachine.onStepChange = (step, stepIndex) => {
+                    updateStoryContent(step, stepIndex);
+                };
+                
+                // Setup error listener
+                storyMachine.onError = (error) => {
+                    console.error('Story machine error:', error);
+                    const errorCount = document.getElementById('error-count');
+                    errorCount.textContent = parseInt(errorCount.textContent) + 1;
+                };
+                
+                console.log('Story machine initialized with story:', currentStory.title);
+                document.getElementById('total-steps').textContent = currentStory.steps.length;
+                
+                return storyMachine;
+            } catch (error) {
+                console.error('Failed to initialize story machine:', error);
+                return null;
+            }
+        }
+
+        // Story control functions
+        window.startStory = async function() {
+            if (!storyMachine) {
+                storyMachine = await initStoryMachine();
+            }
+            
+            if (storyMachine) {
+                storyMachine.start();
+            }
+        };
+
+        window.pauseStory = function() {
+            if (storyMachine) {
+                storyMachine.pause();
+            }
+        };
+
+        window.resumeStory = function() {
+            if (storyMachine) {
+                storyMachine.resume();
+            }
+        };
+
+        window.stopStory = function() {
+            if (storyMachine) {
+                storyMachine.stop();
+            }
+        };
+
+        window.resetStory = async function() {
+            if (storyMachine) {
+                storyMachine.reset();
+                // Reset UI
+                document.getElementById('narration').textContent = 
+                    'Welcome to the Interactive Earth Story Map. Click "Start Story" to begin exploring climate anomalies and environmental changes.';
+                document.getElementById('story-data').innerHTML = '';
+                document.getElementById('progress-fill').style.width = '0%';
+            }
+        };
+
+        // Update state display
+        function updateStateDisplay(state, previousState) {
+            document.getElementById('current-state').textContent = state;
+            
+            const transitionCount = document.getElementById('transition-count');
+            transitionCount.textContent = parseInt(transitionCount.textContent) + 1;
+            
+            console.log(`State transition: ${previousState} → ${state}`);
+        }
+
+        // Update control buttons based on state
+        function updateControlButtons(state) {
+            const startBtn = document.getElementById('start-btn');
+            const pauseBtn = document.getElementById('pause-btn');
+            const resumeBtn = document.getElementById('resume-btn');
+            const stopBtn = document.getElementById('stop-btn');
+            const resetBtn = document.getElementById('reset-btn');
+
+            // Reset all buttons
+            [startBtn, pauseBtn, resumeBtn, stopBtn].forEach(btn => {
+                btn.disabled = true;
+            });
+
+            switch (state) {
+                case 'IDLE':
+                    startBtn.disabled = false;
+                    resetBtn.disabled = false;
+                    break;
+                case 'LOADING':
+                    // All buttons disabled during loading
+                    resetBtn.disabled = true;
+                    break;
+                case 'PLAYING':
+                    pauseBtn.disabled = false;
+                    stopBtn.disabled = false;
+                    break;
+                case 'PAUSED':
+                    resumeBtn.disabled = false;
+                    stopBtn.disabled = false;
+                    break;
+                case 'FINISHED':
+                    startBtn.disabled = false;
+                    resetBtn.disabled = false;
+                    break;
+            }
+        }
+
+        // Update story content
+        function updateStoryContent(step, stepIndex) {
+            document.getElementById('current-step').textContent = `${stepIndex + 1} / ${currentStory.steps.length}`;
+            
+            // Update progress bar
+            const progress = ((stepIndex + 1) / currentStory.steps.length) * 100;
+            document.getElementById('progress-fill').style.width = `${progress}%`;
+            
+            // Update narration
+            document.getElementById('narration').textContent = step.narration;
+            
+            // Show relevant events
+            const filteredEvents = storyData.filter(event => {
+                if (step.filters.type && event.type !== step.filters.type) return false;
+                if (step.filters.year && !event.timestamp.includes(step.filters.year)) return false;
+                if (step.filters.instrument && event.instrument !== step.filters.instrument) return false;
+                return true;
+            });
+            
+            const storyDataDiv = document.getElementById('story-data');
+            storyDataDiv.innerHTML = `
+                <h4>Filtered Events (${filteredEvents.length})</h4>
+                <div style="max-height: 150px; overflow-y: auto;">
+                    ${filteredEvents.slice(0, 10).map(event => `
+                        <div style="margin: 5px 0; padding: 5px; background: #333; border-radius: 4px; font-size: 12px;">
+                            <strong>${event.title}</strong><br>
+                            Type: ${event.type} | Instrument: ${event.instrument} | Date: ${event.timestamp.slice(0, 10)}
+                        </div>
+                    `).join('')}
+                    ${filteredEvents.length > 10 ? `<div style="text-align: center; margin: 10px 0; color: #888;">... and ${filteredEvents.length - 10} more events</div>` : ''}
+                </div>
+            `;
+            
+            console.log(`Story step ${stepIndex + 1}: ${step.title}`, {
+                filteredEvents: filteredEvents.length,
+                filters: step.filters
+            });
+        }
+
+        // Initialize on load
+        document.addEventListener('DOMContentLoaded', () => {
+            updateControlButtons('IDLE');
+            console.log('Story Mode test page loaded');
+        });
+    </script>
+</body>
+</html>

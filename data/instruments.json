@@ -1,0 +1,50 @@
+{
+  "schemaVersion": 1,
+  "instruments": {
+    "modis": {
+      "id": "modis",
+      "name": "MODIS",
+      "fullName": "Moderate Resolution Imaging Spectroradiometer",
+      "satellites": ["Terra", "Aqua"],
+      "resolution": "250m-1km",
+      "website": "https://modis.gsfc.nasa.gov/",
+      "capabilities": ["fire", "temperature", "vegetation"]
+    },
+    "viirs": {
+      "id": "viirs",
+      "name": "VIIRS",
+      "fullName": "Visible Infrared Imaging Radiometer Suite",
+      "satellites": ["Suomi NPP", "NOAA-20"],
+      "resolution": "375m-750m",
+      "website": "https://www.jpss.noaa.gov/viirs.html",
+      "capabilities": ["fire", "temperature"]
+    },
+    "landsat": {
+      "id": "landsat",
+      "name": "Landsat",
+      "fullName": "Landsat Data Continuity Mission",
+      "satellites": ["Landsat 8", "Landsat 9"],
+      "resolution": "15m-100m",
+      "website": "https://landsat.gsfc.nasa.gov/",
+      "capabilities": ["vegetation", "temperature"]
+    },
+    "avhrr": {
+      "id": "avhrr",
+      "name": "AVHRR",
+      "fullName": "Advanced Very High Resolution Radiometer",
+      "satellites": ["NOAA POES"],
+      "resolution": "1.1km",
+      "website": "https://www.ncei.noaa.gov/data/avhrr/",
+      "capabilities": ["temperature", "vegetation"]
+    },
+    "goes": {
+      "id": "goes",
+      "name": "GOES",
+      "fullName": "Geostationary Operational Environmental Satellite",
+      "satellites": ["GOES-16", "GOES-17", "GOES-18"],
+      "resolution": "0.5km-2km",
+      "website": "https://www.goes.noaa.gov/",
+      "capabilities": ["fire", "temperature", "precipitation"]
+    }
+  }
+}

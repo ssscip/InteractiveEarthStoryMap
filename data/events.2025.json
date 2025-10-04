@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "year": 2025,
+  "events": [
+    {
+      "id": "temp_australia_2025_001",
+      "title": "Australian Summer Heat Wave",
+      "timestamp": "2025-01-15T09:30:00Z",
+      "type": "temperature",
+      "severity": "medium",
+      "instrument": "modis",
+      "coordinates": {
+        "lat": -25.2744,
+        "lng": 133.7751,
+        "bounds": {
+          "north": -20.2744,
+          "south": -30.2744,
+          "east": 138.7751,
+          "west": 128.7751
+        }
+      },
+      "description": "Extended heat wave across central Australia with temperatures exceeding 40°C",
+      "metadata": {
+        "max_temperature_c": 42.8,
+        "anomaly_c": 5.1,
+        "duration_days": 8,
+        "heat_index": "severe"
+      },
+      "media": {
+        "thumbnail": "media/2025/temp_australia_001_thumb.webp",
+        "full_image": "media/2025/temp_australia_001_full.png"
+      },
+      "sources": [
+        "http://www.bom.gov.au/",
+        "https://earthdata.nasa.gov/"
+      ]
+    }
+  ]
+}

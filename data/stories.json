@@ -1,0 +1,125 @@
+{
+  "schemaVersion": 1,
+  "stories": {
+    "global_fires_2023": {
+      "id": "global_fires_2023",
+      "title": "Global Wildfire Crisis 2023",
+      "description": "A journey through the devastating wildfires that swept across multiple continents in 2023",
+      "duration": 25000,
+      "autoFocus": true,
+      "steps": [
+        {
+          "eventId": "fire_canada_2023_001",
+          "delayMs": 4000,
+          "narration": "Our story begins in the boreal forests of northern Canada, where unprecedented fires consumed over 500,000 hectares.",
+          "cameraPosition": {
+            "lat": 55.7558,
+            "lng": -115.3989,
+            "zoom": 8
+          },
+          "highlightDuration": 2000
+        },
+        {
+          "eventId": "temp_europe_2023_002",
+          "delayMs": 4500,
+          "narration": "Meanwhile, Europe experienced extreme heat waves with temperatures exceeding 45°C, creating perfect conditions for fires.",
+          "cameraPosition": {
+            "lat": 45.4642,
+            "lng": 9.1900,
+            "zoom": 6
+          },
+          "highlightDuration": 2000
+        },
+        {
+          "eventId": "precip_libya_2023_003",
+          "delayMs": 4000,
+          "narration": "Storm Daniel brought devastating floods to Libya, demonstrating the extreme weather patterns affecting our planet.",
+          "cameraPosition": {
+            "lat": 32.7576,
+            "lng": 22.6367,
+            "zoom": 9
+          },
+          "highlightDuration": 2000
+        }
+      ],
+      "conclusion": {
+        "title": "Climate Patterns Revealed",
+        "text": "These events illustrate the interconnected nature of global climate systems and the increasing frequency of extreme weather events.",
+        "delayMs": 3000
+      }
+    },
+    "temperature_extremes_2024": {
+      "id": "temperature_extremes_2024",
+      "title": "Temperature Extremes of 2024",
+      "description": "Exploring the record-breaking temperatures and heat events that defined 2024",
+      "duration": 18000,
+      "autoFocus": true,
+      "steps": [
+        {
+          "eventId": "fire_california_2024_001",
+          "delayMs": 3500,
+          "narration": "California's Park Fire became the fourth-largest wildfire in state history, burning over 429,000 acres.",
+          "cameraPosition": {
+            "lat": 39.8075,
+            "lng": -121.4944,
+            "zoom": 8
+          },
+          "highlightDuration": 2000
+        },
+        {
+          "eventId": "precip_valencia_2024_002",
+          "delayMs": 4000,
+          "narration": "Spain's Valencia region faced catastrophic flooding from the DANA weather phenomenon, claiming over 230 lives.",
+          "cameraPosition": {
+            "lat": 39.4699,
+            "lng": -0.3763,
+            "zoom": 9
+          },
+          "highlightDuration": 2000
+        }
+      ],
+      "conclusion": {
+        "title": "Extreme Weather Intensifies",
+        "text": "2024 continued the trend of increasing weather extremes, with record-breaking fires and unprecedented flooding events.",
+        "delayMs": 3000
+      }
+    },
+    "australian_heat_2025": {
+      "id": "australian_heat_2025",
+      "title": "Australian Summer Heat Wave 2025",
+      "description": "The ongoing extreme heat affecting Australia in early 2025",
+      "duration": 12000,
+      "autoFocus": true,
+      "steps": [
+        {
+          "eventId": "temp_australia_2025_001",
+          "delayMs": 4000,
+          "narration": "Australia faces another extreme summer with temperatures exceeding 40°C across vast regions of the continent.",
+          "cameraPosition": {
+            "lat": -25.2744,
+            "lng": 133.7751,
+            "zoom": 5
+          },
+          "highlightDuration": 3000
+        }
+      ],
+      "conclusion": {
+        "title": "Ongoing Climate Challenges",
+        "text": "Australia continues to experience intense heat waves, highlighting the urgent need for climate adaptation strategies.",
+        "delayMs": 3000
+      }
+    }
+  },
+  "config": {
+    "defaultStoryId": "global_fires_2023",
+    "autoPlay": false,
+    "showProgress": true,
+    "enableSkipping": true,
+    "pauseOnHover": false,
+    "analytics": {
+      "trackSteps": true,
+      "trackCompletion": true,
+      "trackSkips": true
+    }
+  }
+}

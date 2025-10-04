@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Timeline Performance Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background: #1a1a1a;
+            color: white;
+        }
+        .test-controls {
+            margin-bottom: 20px;
+            padding: 20px;
+            background: #2a2a2a;
+            border-radius: 8px;
+        }
+        .test-button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            margin: 5px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .test-button:hover {
+            background: #45a049;
+        }
+        .performance-stats {
+            margin: 20px 0;
+            padding: 15px;
+            background: #2a2a2a;
+            border-radius: 8px;
+        }
+        .stat-item {
+            margin: 5px 0;
+        }
+        #timeline-container {
+            height: 400px;
+            border: 1px solid #444;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+    </style>
+</head>
+<body>
+    <h1>Timeline Performance Test</h1>
+    
+    <div class="test-controls">
+        <h3>Performance Tests</h3>
+        <button class="test-button" onclick="loadStandardData()">Load Standard Data (141 events)</button>
+        <button class="test-button" onclick="loadPerformanceData()">Load Performance Data (500 events)</button>
+        <button class="test-button" onclick="scrollTest()">Scroll Performance Test</button>
+        <button class="test-button" onclick="clearTimeline()">Clear Timeline</button>
+    </div>
+
+    <div class="performance-stats">
+        <h3>Performance Statistics</h3>
+        <div class="stat-item">Events Loaded: <span id="events-count">0</span></div>
+        <div class="stat-item">Render Time: <span id="render-time">-</span>ms</div>
+        <div class="stat-item">Visible Items: <span id="visible-items">-</span></div>
+        <div class="stat-item">Virtual Mode: <span id="virtual-mode">-</span></div>
+        <div class="stat-item">Scroll FPS: <span id="scroll-fps">-</span></div>
+    </div>
+
+    <div id="timeline-container">
+        <div id="timeline" style="height: 100%;"></div>
+    </div>
+
+    <script type="module">
+        import { loadAllEvents } from './js/dataLoader.js';
+        
+        let timeline = null;
+        let performanceMetrics = {
+            renderStart: 0,
+            renderEnd: 0,
+            scrollFrames: [],
+            lastScrollTime: 0
+        };
+
+        // Initialize timeline
+        async function initTimeline() {
+            try {
+                const { initTimeline } = await import('./timeline.js');
+                timeline = await initTimeline('#timeline');
+                console.log('Timeline initialized for testing');
+                return timeline;
+            } catch (error) {
+                console.error('Failed to initialize timeline:', error);
+                return null;
+            }
+        }
+
+        // Load standard data
+        window.loadStandardData = async function() {
+            if (!timeline) {
+                timeline = await initTimeline();
+            }
+            
+            performanceMetrics.renderStart = performance.now();
+            
+            try {
+                const events = await loadAllEvents();
+                updateStats(events.length, 'Standard');
+                console.log('Loaded standard data:', events.length, 'events');
+                
+                // Update timeline with events
+                if (timeline && timeline.updateEvents) {
+                    timeline.updateEvents(events);
+                }
+                
+                performanceMetrics.renderEnd = performance.now();
+                document.getElementById('render-time').textContent = 
+                    (performanceMetrics.renderEnd - performanceMetrics.renderStart).toFixed(2);
+                
+            } catch (error) {
+                console.error('Failed to load standard data:', error);
+            }
+        };
+
+        // Load performance test data
+        window.loadPerformanceData = async function() {
+            if (!timeline) {
+                timeline = await initTimeline();
+            }
+            
+            performanceMetrics.renderStart = performance.now();
+            
+            try {
+                // Load performance test data specifically
+                const response = await fetch('./data/events.2024-perf.json');
+                const data = await response.json();
+                const events = data.events || [];
+                
+                updateStats(events.length, 'Performance Test');
+                console.log('Loaded performance data:', events.length, 'events');
+                
+                // Update timeline with events
+                if (timeline && timeline.updateEvents) {
+                    timeline.updateEvents(events);
+                }
+                
+                performanceMetrics.renderEnd = performance.now();
+                document.getElementById('render-time').textContent = 
+                    (performanceMetrics.renderEnd - performanceMetrics.renderStart).toFixed(2);
+                
+            } catch (error) {
+                console.error('Failed to load performance data:', error);
+            }
+        };
+
+        // Scroll performance test
+        window.scrollTest = function() {
+            const timelineContainer = document.getElementById('timeline-container');
+            if (!timelineContainer) return;
+            
+            performanceMetrics.scrollFrames = [];
+            let frameCount = 0;
+            const maxFrames = 60; // Test for 1 second at 60fps
+            
+            function measureScrollFrame() {
+                const now = performance.now();
+                if (performanceMetrics.lastScrollTime > 0) {
+                    const frameDuration = now - performanceMetrics.lastScrollTime;
+                    performanceMetrics.scrollFrames.push(frameDuration);
+                }
+                performanceMetrics.lastScrollTime = now;
+                
+                // Simulate scroll
+                timelineContainer.scrollTop += 5;
+                
+                frameCount++;
+                if (frameCount < maxFrames) {
+                    requestAnimationFrame(measureScrollFrame);
+                } else {
+                    // Calculate average FPS
+                    const avgFrameDuration = performanceMetrics.scrollFrames.reduce((a, b) => a + b, 0) / performanceMetrics.scrollFrames.length;
+                    const fps = 1000 / avgFrameDuration;
+                    document.getElementById('scroll-fps').textContent = fps.toFixed(1);
+                    console.log('Scroll test completed. Average FPS:', fps.toFixed(1));
+                }
+            }
+            
+            performanceMetrics.lastScrollTime = 0;
+            requestAnimationFrame(measureScrollFrame);
+        };
+
+        // Clear timeline
+        window.clearTimeline = function() {
+            if (timeline && timeline.updateEvents) {
+                timeline.updateEvents([]);
+            }
+            updateStats(0, 'Cleared');
+        };
+
+        // Update statistics display
+        function updateStats(count, mode) {
+            document.getElementById('events-count').textContent = count;
+            document.getElementById('virtual-mode').textContent = count > 200 ? 'Enabled' : 'Disabled';
+            
+            // Estimate visible items (assuming ~20 items visible at once)
+            const visibleItems = Math.min(count, 20);
+            document.getElementById('visible-items').textContent = visibleItems;
+        }
+
+        // Initialize on load
+        document.addEventListener('DOMContentLoaded', initTimeline);
+    </script>
+</body>
+</html>

@@ -1,0 +1,106 @@
+{
+  "schemaVersion": 1,
+  "year": 2023,
+  "events": [
+    {
+      "id": "fire_canada_2023_001",
+      "title": "Canadian Boreal Forest Fires",
+      "timestamp": "2023-06-15T14:30:00Z",
+      "type": "fire",
+      "severity": "high",
+      "instrument": "modis",
+      "coordinates": {
+        "lat": 55.7558,
+        "lng": -115.3989,
+        "bounds": {
+          "north": 56.2558,
+          "south": 55.2558,
+          "east": -114.8989,
+          "west": -115.8989
+        }
+      },
+      "description": "Massive wildfire complex in northern Alberta affecting over 500,000 hectares",
+      "metadata": {
+        "area_affected_km2": 500000,
+        "confidence": 95,
+        "fire_radiative_power": 2800,
+        "smoke_plume_detected": true
+      },
+      "media": {
+        "thumbnail": "media/2023/fire_canada_001_thumb.webp",
+        "full_image": "media/2023/fire_canada_001_full.png",
+        "overlay": "overlays/2023/fire_canada_001.geotiff"
+      },
+      "sources": [
+        "https://firms.modaps.eosdis.nasa.gov/",
+        "https://cwfis.cfs.nrcan.gc.ca/"
+      ]
+    },
+    {
+      "id": "temp_europe_2023_002",
+      "title": "European Heat Dome",
+      "timestamp": "2023-07-18T12:00:00Z",
+      "type": "temperature",
+      "severity": "high",
+      "instrument": "modis",
+      "coordinates": {
+        "lat": 45.4642,
+        "lng": 9.1900,
+        "bounds": {
+          "north": 50.4642,
+          "south": 40.4642,
+          "east": 15.1900,
+          "west": 3.1900
+        }
+      },
+      "description": "Record-breaking temperatures across Southern Europe, exceeding 45°C in multiple locations",
+      "metadata": {
+        "max_temperature_c": 47.4,
+        "anomaly_c": 8.2,
+        "duration_days": 12,
+        "heat_index": "extreme"
+      },
+      "media": {
+        "thumbnail": "media/2023/temp_europe_002_thumb.webp",
+        "full_image": "media/2023/temp_europe_002_full.png"
+      },
+      "sources": [
+        "https://earthdata.nasa.gov/",
+        "https://climate.copernicus.eu/"
+      ]
+    },
+    {
+      "id": "precip_libya_2023_003",
+      "title": "Libya Catastrophic Flooding",
+      "timestamp": "2023-09-11T08:15:00Z",
+      "type": "precipitation",
+      "severity": "high",
+      "instrument": "goes",
+      "coordinates": {
+        "lat": 32.7576,
+        "lng": 22.6367,
+        "bounds": {
+          "north": 33.2576,
+          "south": 32.2576,
+          "east": 23.1367,
+          "west": 22.1367
+        }
+      },
+      "description": "Storm Daniel causes devastating floods in Derna and surrounding areas",
+      "metadata": {
+        "rainfall_mm": 414,
+        "duration_hours": 24,
+        "flood_extent_km2": 2500,
+        "casualties": 11300
+      },
+      "media": {
+        "thumbnail": "media/2023/precip_libya_003_thumb.webp",
+        "full_image": "media/2023/precip_libya_003_full.png"
+      },
+      "sources": [
+        "https://gpm.nasa.gov/",
+        "https://www.unocha.org/"
+      ]
+    }
+  ]
+}

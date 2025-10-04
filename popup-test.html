@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enhanced Popup Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background: #1a1a1a;
+            color: white;
+            line-height: 1.6;
+        }
+        .test-controls {
+            margin-bottom: 20px;
+            padding: 20px;
+            background: #2a2a2a;
+            border-radius: 8px;
+        }
+        .test-button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            margin: 5px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .test-button:hover {
+            background: #45a049;
+        }
+        .test-button:focus {
+            outline: 2px solid #64b5f6;
+            outline-offset: 2px;
+        }
+        .feature-list {
+            background: #2a2a2a;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .feature-item {
+            margin: 10px 0;
+            padding: 8px;
+            background: #333;
+            border-radius: 4px;
+        }
+        .keyboard-shortcuts {
+            background: #1e1e1e;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .shortcut {
+            display: flex;
+            justify-content: space-between;
+            margin: 8px 0;
+            padding: 6px;
+            background: #2a2a2a;
+            border-radius: 4px;
+        }
+        .key {
+            background: #444;
+            padding: 2px 8px;
+            border-radius: 3px;
+            font-family: monospace;
+        }
+        .url-display {
+            background: #2a2a2a;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+        }
+        .url-display code {
+            background: #1e1e1e;
+            padding: 4px 8px;
+            border-radius: 4px;
+            color: #64b5f6;
+        }
+    </style>
+    <link rel="stylesheet" href="popup-enhanced-styles.css">
+</head>
+<body>
+    <h1>Enhanced Popup Test</h1>
+    
+    <div class="test-controls">
+        <h3>Test Different Event Types</h3>
+        <button class="test-button" onclick="showBasicEvent()">Basic Event</button>
+        <button class="test-button" onclick="showEventWithMetrics()">Event with Metrics</button>
+        <button class="test-button" onclick="showEventWithMedia()">Event with Media</button>
+        <button class="test-button" onclick="showCompleteEvent()">Complete Event</button>
+        <button class="test-button" onclick="showEventWithLongContent()">Long Content Event</button>
+        <button class="test-button" onclick="testDirectLink()">Test Direct Link</button>
+    </div>
+
+    <div class="feature-list">
+        <h3>✨ Enhanced Features</h3>
+        <div class="feature-item">
+            <strong>🎯 Dynamic Content:</strong> Event title, formatted date, conditional metrics, lazy-loaded images
+        </div>
+        <div class="feature-item">
+            <strong>♿ Accessibility:</strong> Focus trap, ESC key support, ARIA labels, screen reader announcements
+        </div>
+        <div class="feature-item">
+            <strong>🔗 Share Links:</strong> Copy URL with hash fragment (#event/evt_123) for direct access
+        </div>
+        <div class="feature-item">
+            <strong>🖼️ Graceful Fallbacks:</strong> Skeleton loading, placeholder for missing images
+        </div>
+        <div class="feature-item">
+            <strong>⌨️ Keyboard Navigation:</strong> Tab navigation trapped within popup, no "leaking" outside
+        </div>
+    </div>
+
+    <div class="keyboard-shortcuts">
+        <h3>⌨️ Keyboard Shortcuts</h3>
+        <div class="shortcut">
+            <span>Close popup</span>
+            <span><span class="key">Esc</span></span>
+        </div>
+        <div class="shortcut">
+            <span>Navigate forward</span>
+            <span><span class="key">Tab</span></span>
+        </div>
+        <div class="shortcut">
+            <span>Navigate backward</span>
+            <span><span class="key">Shift</span> + <span class="key">Tab</span></span>
+        </div>
+        <div class="shortcut">
+            <span>Activate button</span>
+            <span><span class="key">Enter</span> or <span class="key">Space</span></span>
+        </div>
+    </div>
+
+    <div class="url-display">
+        <h3>🔗 URL Sharing</h3>
+        <p>When a popup is opened, the URL updates to include a hash fragment for direct linking:</p>
+        <p><code id="current-url">http://localhost:3000/popup-test.html</code></p>
+        <p>Try copying and pasting the URL with hash to test direct access!</p>
+    </div>
+
+    <script type="module">
+        // Import enhanced popup
+        import { initPopup, showEventPopup } from './popup-enhanced.js';
+        
+        // Sample event data for testing
+        const sampleEvents = {
+            basic: {
+                id: 'test_basic_001',
+                title: 'Basic Climate Event',
+                timestamp: '2024-10-15T14:30:00Z',
+                type: 'temperature',
+                description: 'A simple temperature anomaly detected in the Arctic region.',
+                coordinates: { lat: 71.5, lng: -8.0 }
+            },
+            
+            withMetrics: {
+                id: 'test_metrics_002',
+                title: 'Temperature Spike with Detailed Metrics',
+                timestamp: '2024-09-22T09:15:00Z',
+                type: 'temperature',
+                severity: 'high',
+                instrument: 'modis',
+                description: 'Significant temperature increase observed with comprehensive sensor data.',
+                coordinates: { lat: 68.2, lng: 15.1 },
+                metrics: {
+                    temperature: 42.3,
+                    humidity: 85,
+                    windSpeed: 12.5,
+                    pressure: 1013.25,
+                    visibility: 15000
+                }
+            },
+            
+            withMedia: {
+                id: 'test_media_003',
+                title: 'Wildfire with Satellite Imagery',
+                timestamp: '2024-08-11T16:45:00Z',
+                type: 'fire',
+                severity: 'critical',
+                instrument: 'viirs',
+                description: 'Large wildfire detected with multiple satellite images showing progression.',
+                coordinates: { lat: 39.7, lng: -121.6 },
+                media: [
+                    {
+                        url: 'https://via.placeholder.com/400x300/ff6b6b/ffffff?text=Wildfire+Satellite+Image',
+                        alt: 'Satellite image showing wildfire progression',
+                        caption: 'VIIRS thermal satellite imagery showing fire hotspots'
+                    },
+                    {
+                        url: 'https://via.placeholder.com/400x300/ff9f00/ffffff?text=Before+Fire',
+                        alt: 'Area before fire outbreak',
+                        caption: 'Same area 30 days before fire outbreak'
+                    }
+                ]
+            },
+            
+            complete: {
+                id: 'test_complete_004',
+                title: 'Comprehensive Environmental Event Analysis',
+                timestamp: '2024-07-03T11:20:00Z',
+                type: 'precipitation',
+                severity: 'medium',
+                instrument: 'landsat',
+                description: 'Complete environmental analysis with all available data sources and comprehensive metrics for detailed study.',
+                coordinates: { lat: 45.5, lng: -122.7 },
+                metrics: {
+                    precipitation: 125.6,
+                    temperature: 18.2,
+                    humidity: 92,
+                    cloudCover: 88,
+                    windDirection: 'NW',
+                    uvIndex: 3
+                },
+                media: [
+                    {
+                        url: 'https://via.placeholder.com/400x300/4CAF50/ffffff?text=Precipitation+Map',
+                        alt: 'Precipitation intensity map',
+                        caption: 'Landsat precipitation intensity analysis'
+                    }
+                ],
+                additionalData: {
+                    'Data Quality': 'High',
+                    'Processing Method': 'Automated Analysis',
+                    'Confidence Level': '95%',
+                    'Source Agency': 'NASA Earth Science Division'
+                },
+                externalUrl: 'https://earthdata.nasa.gov'
+            },
+            
+            longContent: {
+                id: 'test_long_005',
+                title: 'Extended Climate Analysis with Comprehensive Data and Long-form Content for Scrolling Test',
+                timestamp: '2024-06-18T08:30:00Z',
+                type: 'vegetation',
+                severity: 'low',
+                instrument: 'sentinel',
+                description: `This is a comprehensive environmental event with extensive documentation and analysis. 
+                
+                The event represents a significant change in vegetation patterns observed over a 6-month period using multiple satellite instruments and ground-based sensors. The analysis includes seasonal variations, temperature correlations, and precipitation impacts.
+                
+                Key findings include abnormal leaf emergence patterns, changes in chlorophyll content, and modified growing seasons. These changes have been correlated with local temperature increases and altered precipitation patterns.
+                
+                The study area covers approximately 2,500 square kilometers and includes diverse vegetation types from grasslands to deciduous forests. Multi-spectral analysis has revealed subtle but significant changes in vegetation health indices.`,
+                coordinates: { lat: 52.3, lng: 4.9 },
+                metrics: {
+                    vegetationIndex: 0.72,
+                    chlorophyllContent: 145.8,
+                    leafAreaIndex: 3.2,
+                    canopyHeight: 15.7,
+                    soilMoisture: 0.35,
+                    carbonSequestration: 12.5,
+                    biodiversityIndex: 0.84,
+                    temperatureAverage: 16.8,
+                    precipitationTotal: 780.2,
+                    growingSeasonLength: 165
+                },
+                additionalData: {
+                    'Study Duration': '6 months',
+                    'Area Coverage': '2,500 km²',
+                    'Vegetation Types': 'Mixed forest, grassland, wetland',
+                    'Primary Sensor': 'Sentinel-2 MSI',
+                    'Secondary Sensors': 'Landsat-8 OLI, MODIS Terra',
+                    'Ground Truth Sites': '24 validation points',
+                    'Data Processing Level': 'Level 2A',
+                    'Atmospheric Correction': 'Sen2Cor v2.8',
+                    'Quality Assessment': 'Passed all QA checks'
+                }
+            }
+        };
+        
+        // Initialize popup
+        let popupInitialized = false;
+        
+        async function ensurePopupInitialized() {
+            if (!popupInitialized) {
+                await initPopup();
+                popupInitialized = true;
+                console.log('Enhanced popup initialized for testing');
+            }
+        }
+        
+        // Test functions
+        window.showBasicEvent = async function() {
+            await ensurePopupInitialized();
+            showEventPopup(sampleEvents.basic);
+        };
+        
+        window.showEventWithMetrics = async function() {
+            await ensurePopupInitialized();
+            showEventPopup(sampleEvents.withMetrics);
+        };
+        
+        window.showEventWithMedia = async function() {
+            await ensurePopupInitialized();
+            showEventPopup(sampleEvents.withMedia);
+        };
+        
+        window.showCompleteEvent = async function() {
+            await ensurePopupInitialized();
+            showEventPopup(sampleEvents.complete);
+        };
+        
+        window.showEventWithLongContent = async function() {
+            await ensurePopupInitialized();
+            showEventPopup(sampleEvents.longContent);
+        };
+        
+        window.testDirectLink = function() {
+            // Test direct linking by setting hash
+            window.location.hash = '#event/test_complete_004';
+        };
+        
+        // Update URL display
+        function updateUrlDisplay() {
+            const urlDisplay = document.getElementById('current-url');
+            if (urlDisplay) {
+                urlDisplay.textContent = window.location.href;
+            }
+        }
+        
+        // Listen for hash changes
+        window.addEventListener('hashchange', updateUrlDisplay);
+        
+        // Initial setup
+        document.addEventListener('DOMContentLoaded', () => {
+            updateUrlDisplay();
+            console.log('Enhanced popup test page loaded');
+            console.log('Available test events:', Object.keys(sampleEvents));
+        });
+        
+        // Accessibility announcement
+        const announcer = document.createElement('div');
+        announcer.setAttribute('aria-live', 'polite');
+        announcer.setAttribute('aria-atomic', 'true');
+        announcer.className = 'visually-hidden';
+        announcer.id = 'test-announcer';
+        document.body.appendChild(announcer);
+        
+        // Test focus management
+        window.testFocusTrap = function() {
+            const announcer = document.getElementById('test-announcer');
+            if (announcer) {
+                announcer.textContent = 'Focus trap test: Try navigating with Tab - focus should stay within the popup.';
+            }
+        };
+    </script>
+
+    <!-- Add visually-hidden styles -->
+    <style>
+        .visually-hidden {
+            position: absolute !important;
+            width: 1px !important;
+            height: 1px !important;
+            padding: 0 !important;
+            margin: -1px !important;
+            overflow: hidden !important;
+            clip: rect(0, 0, 0, 0) !important;
+            white-space: nowrap !important;
+            border: 0 !important;
+        }
+    </style>
+</body>
+</html>

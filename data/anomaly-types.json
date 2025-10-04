@@ -1,0 +1,65 @@
+{
+  "schemaVersion": 1,
+  "types": {
+    "fire": {
+      "id": "fire",
+      "name": "Wildfire",
+      "description": "Forest and wildland fires detected by thermal sensors",
+      "color": "#ff4444",
+      "icon": "🔥",
+      "severity": {
+        "low": { "threshold": 0, "color": "#ffaa44" },
+        "medium": { "threshold": 50, "color": "#ff6644" },
+        "high": { "threshold": 80, "color": "#ff2222" }
+      }
+    },
+    "temperature": {
+      "id": "temperature",
+      "name": "Temperature Anomaly",
+      "description": "Extreme temperature variations from seasonal norms",
+      "color": "#ff8800",
+      "icon": "🌡️",
+      "severity": {
+        "low": { "threshold": 0, "color": "#ffbb44" },
+        "medium": { "threshold": 3, "color": "#ff8800" },
+        "high": { "threshold": 6, "color": "#dd4400" }
+      }
+    },
+    "precipitation": {
+      "id": "precipitation",
+      "name": "Precipitation Anomaly",
+      "description": "Unusual rainfall patterns and drought conditions",
+      "color": "#4488ff",
+      "icon": "💧",
+      "severity": {
+        "low": { "threshold": 0, "color": "#88bbff" },
+        "medium": { "threshold": 50, "color": "#4488ff" },
+        "high": { "threshold": 80, "color": "#2266cc" }
+      }
+    },
+    "vegetation": {
+      "id": "vegetation",
+      "name": "Vegetation Index",
+      "description": "Changes in vegetation health and coverage",
+      "color": "#44cc44",
+      "icon": "🌿",
+      "severity": {
+        "low": { "threshold": 0, "color": "#88dd88" },
+        "medium": { "threshold": 30, "color": "#44cc44" },
+        "high": { "threshold": 60, "color": "#228822" }
+      }
+    },
+    "sea_ice": {
+      "id": "sea_ice",
+      "name": "Sea Ice Extent",
+      "description": "Arctic and Antarctic sea ice coverage changes",
+      "color": "#88ccff",
+      "icon": "🧊",
+      "severity": {
+        "low": { "threshold": 0, "color": "#bbddff" },
+        "medium": { "threshold": 25, "color": "#88ccff" },
+        "high": { "threshold": 50, "color": "#5599dd" }
+      }
+    }
+  }
+}
