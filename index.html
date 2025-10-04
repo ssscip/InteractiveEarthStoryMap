@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Interactive Earth Story Map - Explore climate anomalies and environmental changes through satellite data visualization">
+    <title>Interactive Earth Story Map</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <!-- Header Section -->
+    <header class="header" role="banner">
+        <div class="header-container">
+            <h1 class="header-title">Interactive Earth Story Map</h1>
+            <p class="header-description">
+                Explore climate anomalies and environmental changes through interactive satellite data visualization.
+                Discover stories behind the data and track environmental patterns across time and space.
+            </p>
+            <div class="data-source-placeholder">
+                <span class="data-source-label">Data Source:</span>
+                <span class="data-source-info">NASA Earth Science Data</span>
+                <!-- TODO: Replace with actual data source information -->
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main-content" role="main">
+        <!-- Controls Section -->
+        <section class="controls" role="region" aria-labelledby="controls-heading">
+            <h2 id="controls-heading" class="visually-hidden">Data Filters and Controls</h2>
+            <div class="controls-container">
+                <div class="filter-group">
+                    <label for="instrument-select" class="filter-label">Instrument:</label>
+                    <select id="instrument-select" class="filter-select" aria-describedby="instrument-help">
+                        <option value="">All Instruments</option>
+                        <!-- TODO: Populate with actual instrument options from data -->
+                        <option value="modis">MODIS</option>
+                        <option value="landsat">Landsat</option>
+                        <option value="viirs">VIIRS</option>
+                    </select>
+                    <span id="instrument-help" class="visually-hidden">Filter data by satellite instrument</span>
+                </div>
+
+                <div class="filter-group">
+                    <label for="anomaly-type-select" class="filter-label">Anomaly Type:</label>
+                    <select id="anomaly-type-select" class="filter-select" aria-describedby="anomaly-help">
+                        <option value="">All Types</option>
+                        <!-- TODO: Populate with actual anomaly types from data -->
+                        <option value="temperature">Temperature</option>
+                        <option value="precipitation">Precipitation</option>
+                        <option value="vegetation">Vegetation</option>
+                        <option value="fire">Fire</option>
+                    </select>
+                    <span id="anomaly-help" class="visually-hidden">Filter data by anomaly type</span>
+                </div>
+
+                <div class="filter-group">
+                    <label for="year-select" class="filter-label">Year:</label>
+                    <select id="year-select" class="filter-select" aria-describedby="year-help">
+                        <option value="">All Years</option>
+                        <!-- TODO: Populate with actual years from data -->
+                        <option value="2024">2024</option>
+                        <option value="2023">2023</option>
+                        <option value="2022">2022</option>
+                    </select>
+                    <span id="year-help" class="visually-hidden">Filter data by year</span>
+                </div>
+
+                <div class="results-counter">
+                    <span class="counter-label">Results:</span>
+                    <span id="results-count" class="counter-value" aria-live="polite">0</span>
+                    <span class="counter-unit">events</span>
+                    <!-- TODO: Update counter dynamically based on filtered data -->
+                </div>
+            </div>
+        </section>
+
+        <!-- Timeline Section -->
+        <section class="timeline-wrapper" role="region" aria-labelledby="timeline-heading">
+            <h2 id="timeline-heading" class="visually-hidden">Timeline Navigation</h2>
+            <div class="timeline-container">
+                <div class="timeline-track" role="slider" aria-label="Timeline navigation" tabindex="0">
+                    <!-- TODO: Implement interactive timeline with data points -->
+                    <div class="timeline-placeholder">
+                        <span>Timeline will be rendered here</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Map Section -->
+        <section class="map-wrapper" role="region" aria-labelledby="map-heading">
+            <h2 id="map-heading" class="visually-hidden">Interactive Earth Map</h2>
+            <div id="mapContainer" class="map-container" role="application" aria-label="Interactive Earth map showing climate anomalies">
+                <div class="map-background-placeholder">
+                    <span>Map will be rendered here</span>
+                    <!-- TODO: Integrate with mapping library (Leaflet, MapboxGL, etc.) -->
+                </div>
+                <div id="hotspotsLayer" class="hotspots-layer" aria-hidden="true">
+                    <!-- TODO: Render hotspots/anomalies as interactive markers -->
+                </div>
+            </div>
+        </section>
+
+        <!-- Story Mode Controls -->
+        <section id="storyControls" class="story-controls" role="region" aria-labelledby="story-heading">
+            <h2 id="story-heading" class="visually-hidden">Story Mode Controls</h2>
+            <div class="story-controls-container">
+                <button type="button" class="story-btn story-btn--play" aria-label="Play story mode">
+                    <span class="btn-icon">▶</span>
+                    <span class="btn-text">Play Story</span>
+                </button>
+                <button type="button" class="story-btn story-btn--pause" aria-label="Pause story mode" disabled>
+                    <span class="btn-icon">⏸</span>
+                    <span class="btn-text">Pause</span>
+                </button>
+                <button type="button" class="story-btn story-btn--reset" aria-label="Reset story to beginning">
+                    <span class="btn-icon">⏮</span>
+                    <span class="btn-text">Reset</span>
+                </button>
+                <div class="story-progress">
+                    <label for="story-progress-bar" class="visually-hidden">Story progress</label>
+                    <progress id="story-progress-bar" class="progress-bar" value="0" max="100" aria-describedby="story-progress-text">0%</progress>
+                    <span id="story-progress-text" class="progress-text">0% complete</span>
+                </div>
+                <!-- TODO: Implement story mode functionality -->
+            </div>
+        </section>
+    </main>
+
+    <!-- Event Popup -->
+    <div id="eventPopup" class="event-popup" role="dialog" aria-modal="true" aria-labelledby="popup-title" hidden>
+        <div class="popup-content">
+            <header class="popup-header">
+                <h3 id="popup-title" class="popup-title">Event Details</h3>
+                <button type="button" class="popup-close" aria-label="Close popup">
+                    <span aria-hidden="true">×</span>
+                </button>
+            </header>
+            <div class="popup-body">
+                <!-- TODO: Populate with event data dynamically -->
+                <div class="popup-placeholder">
+                    Event information will be displayed here
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notifications Container -->
+    <div id="notifications" class="notifications-container" role="region" aria-live="polite" aria-label="Notifications">
+        <!-- TODO: Display system notifications, loading states, errors -->
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer" role="contentinfo">
+        <div class="footer-container">
+            <div class="attribution">
+                <p class="attribution-text">
+                    Data provided by 
+                    <a href="https://earthdata.nasa.gov/" target="_blank" rel="noopener noreferrer" class="attribution-link">
+                        NASA Earth Science Data
+                    </a>
+                    and 
+                    <a href="https://www.nasa.gov/" target="_blank" rel="noopener noreferrer" class="attribution-link">
+                        NASA
+                    </a>
+                </p>
+                <p class="disclaimer">
+                    This is a demonstration project. Data may be simulated or delayed.
+                </p>
+            </div>
+            <div class="footer-links">
+                <a href="#" class="footer-link">About</a>
+                <a href="#" class="footer-link">Data Sources</a>
+                <a href="#" class="footer-link">Contact</a>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Scripts -->
+    <script type="module" src="main.js"></script>
+    
+    <!-- TODO: Additional script includes for mapping libraries -->
+    <!-- <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script> -->
+    <!-- <script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script> -->
+</body>
+</html>

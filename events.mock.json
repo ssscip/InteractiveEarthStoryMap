@@ -1,0 +1,83 @@
+[
+  {
+    "id": "fire_mock_001",
+    "type": "fire",
+    "title": "California Wildfire Event",
+    "summary": "Large wildfire detected in Northern California with rapid spread due to dry conditions",
+    "location": {
+      "name": "Napa County, California, USA",
+      "coordinates": {
+        "lat": 38.5025,
+        "lng": -122.2654
+      },
+      "mapPosition": {
+        "xPercent": 12,
+        "yPercent": 35
+      }
+    },
+    "severity": "high",
+    "instrument": "MODIS",
+    "satellite": "Terra",
+    "date": "2024-10-01T14:30:00Z",
+    "confidence": 95,
+    "metadata": {
+      "area_burned": "2,340 hectares",
+      "detection_time": "2024-10-01T14:15:00Z",
+      "fire_radiative_power": "312.4 MW"
+    }
+  },
+  {
+    "id": "pollution_mock_001",
+    "type": "co_pollution",
+    "title": "Industrial CO Emissions",
+    "summary": "Elevated carbon monoxide levels detected over industrial region",
+    "location": {
+      "name": "Mumbai, India",
+      "coordinates": {
+        "lat": 19.0760,
+        "lng": 72.8777
+      },
+      "mapPosition": {
+        "xPercent": 72,
+        "yPercent": 42
+      }
+    },
+    "severity": "medium",
+    "instrument": "AIRS",
+    "satellite": "Aqua",
+    "date": "2024-10-02T08:45:00Z",
+    "confidence": 88,
+    "metadata": {
+      "co_concentration": "1.8 ppmv",
+      "detection_altitude": "600-800 hPa",
+      "source_type": "industrial"
+    }
+  },
+  {
+    "id": "flood_mock_001",
+    "type": "flood",
+    "title": "River Flooding Event",
+    "summary": "Significant flooding in river basin due to heavy seasonal rains",
+    "location": {
+      "name": "Mekong Delta, Vietnam",
+      "coordinates": {
+        "lat": 10.0452,
+        "lng": 105.7469
+      },
+      "mapPosition": {
+        "xPercent": 80,
+        "yPercent": 58
+      }
+    },
+    "severity": "high",
+    "instrument": "VIIRS",
+    "satellite": "NOAA-20",
+    "date": "2024-10-03T11:20:00Z",
+    "confidence": 92,
+    "metadata": {
+      "flood_extent": "8,750 km²",
+      "water_depth": "1.5-3 meters",
+      "affected_population": "~280,000"
+    }
+  }
+]
