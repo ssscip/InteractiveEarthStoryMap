@@ -27,8 +27,8 @@ A dynamic web application for visualizing and exploring climate-related events a
 
 1. **Clone the repository**:
    ```bash
-   git clone https://github.com/YOUR_USERNAME/YOUR_REPO_NAME.git
-   cd YOUR_REPO_NAME
+   git clone https://github.com/ssscip/InteractiveEarthStoryMap.git
+   cd InteractiveEarthStoryMap
    ```
 
 2. **Start a local server** (required for ES6 modules):
